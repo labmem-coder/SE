@@ -1,0 +1,13 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="820" viewBox="0 0 1320 820">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2d3748"/></marker><style>.t{font:700 28px 'Microsoft YaHei';fill:#1a202c}.b{fill:#f7fafc;stroke:#2d3748;stroke-width:2.2}.x{font:18px 'Microsoft YaHei';fill:#2d3748}.l{stroke:#4a5568;stroke-width:2.2;fill:none}.m{stroke:#2d3748;stroke-width:2.4;fill:none;marker-end:url(#a)}.r{stroke:#718096;stroke-width:2.2;fill:none;stroke-dasharray:8 8;marker-end:url(#a)}</style></defs>
+  <text x="660" y="44" text-anchor="middle" class="t">UC_09 确认并处理充电桩故障 SSD</text>
+  <rect x="150" y="90" width="190" height="56" class="b"/><text x="245" y="124" text-anchor="middle" class="x">充电站管理员</text>
+  <rect x="850" y="90" width="220" height="56" class="b"/><text x="960" y="124" text-anchor="middle" class="x">调度计费系统</text>
+  <line x1="245" y1="146" x2="245" y2="760" class="l" stroke-dasharray="10 8"/><line x1="960" y1="146" x2="960" y2="760" class="l" stroke-dasharray="10 8"/>
+  <path d="M245 220 L960 220" class="m"/><text x="602" y="204" text-anchor="middle" class="x">1: ConfirmPileFault(pileId, faultType, faultTime, sourceReportId)</text>
+  <rect x="845" y="250" width="230" height="286" class="b"/><text x="960" y="284" text-anchor="middle" class="x">系统内部处理</text><text x="960" y="320" text-anchor="middle" class="x">核实 sourceReportId 并创建 FaultRecord</text><text x="960" y="354" text-anchor="middle" class="x">停用故障桩</text><text x="960" y="388" text-anchor="middle" class="x">保存已充电量和费用快照</text><text x="960" y="422" text-anchor="middle" class="x">为剩余电量新建重调度请求</text><text x="960" y="456" text-anchor="middle" class="x">保留原始排队优先信息</text><text x="960" y="490" text-anchor="middle" class="x">重算等待时间并通知用户</text>
+  <path d="M960 570 L245 570" class="r"/><text x="602" y="556" text-anchor="middle" class="x">2: 返回故障确认成功与重调度结果摘要</text>
+  <path d="M245 650 L960 650" class="m"/><text x="602" y="634" text-anchor="middle" class="x">3: ResumePile(pileId)</text>
+  <rect x="885" y="680" width="150" height="70" class="b"/><text x="960" y="712" text-anchor="middle" class="x">系统内部处理</text><text x="960" y="740" text-anchor="middle" class="x">恢复设备并重新纳入调度</text>
+  <path d="M960 770 L245 770" class="r"/><text x="602" y="756" text-anchor="middle" class="x">4: 返回恢复成功与当前设备状态</text>
+</svg>

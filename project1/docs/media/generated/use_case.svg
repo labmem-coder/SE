@@ -1,0 +1,20 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1580" height="1020" viewBox="0 0 1580 1020">
+  <defs><style>.t{font:700 28px 'Microsoft YaHei';fill:#1a202c}.h{font:600 20px 'Microsoft YaHei';fill:#1a202c}.x{font:18px 'Microsoft YaHei';fill:#2d3748}.l{stroke:#4a5568;stroke-width:2.1;fill:none}.s{fill:#f7fafc;stroke:#2d3748;stroke-width:2.4}.u{fill:#ffffff;stroke:#4a5568;stroke-width:2.1}</style></defs>
+  <text x="790" y="44" text-anchor="middle" class="t">智能充电桩调度计费系统用例图</text>
+  <rect x="350" y="90" width="900" height="850" class="s"/><text x="800" y="124" text-anchor="middle" class="h">智能充电桩调度计费系统</text>
+  <circle cx="135" cy="240" r="26" class="l"/><line x1="135" y1="266" x2="135" y2="350" class="l"/><line x1="90" y1="296" x2="180" y2="296" class="l"/><line x1="135" y1="350" x2="100" y2="410" class="l"/><line x1="135" y1="350" x2="170" y2="410" class="l"/><text x="135" y="454" text-anchor="middle" class="h">充电用户</text>
+  <circle cx="1450" cy="270" r="26" class="l"/><line x1="1450" y1="296" x2="1450" y2="380" class="l"/><line x1="1405" y1="326" x2="1495" y2="326" class="l"/><line x1="1450" y1="380" x2="1415" y2="440" class="l"/><line x1="1450" y1="380" x2="1485" y2="440" class="l"/><text x="1450" y="484" text-anchor="middle" class="h">充电站管理员</text>
+  <ellipse cx="600" cy="180" rx="130" ry="38" class="u"/><text x="600" y="186" text-anchor="middle" class="x">提交充电请求</text>
+  <ellipse cx="600" cy="280" rx="130" ry="38" class="u"/><text x="600" y="286" text-anchor="middle" class="x">修改充电请求</text>
+  <ellipse cx="600" cy="380" rx="130" ry="38" class="u"/><text x="600" y="386" text-anchor="middle" class="x">取消充电请求</text>
+  <ellipse cx="600" cy="480" rx="130" ry="38" class="u"/><text x="600" y="486" text-anchor="middle" class="x">查看排队状态</text>
+  <ellipse cx="600" cy="580" rx="130" ry="38" class="u"/><text x="600" y="586" text-anchor="middle" class="x">响应叫号通知</text>
+  <ellipse cx="600" cy="680" rx="130" ry="38" class="u"/><text x="600" y="686" text-anchor="middle" class="x">上报设备异常</text>
+  <ellipse cx="600" cy="780" rx="130" ry="38" class="u"/><text x="600" y="786" text-anchor="middle" class="x">完成支付</text>
+  <ellipse cx="995" cy="220" rx="150" ry="38" class="u"/><text x="995" y="226" text-anchor="middle" class="x">查看充电桩状态</text>
+  <ellipse cx="995" cy="360" rx="150" ry="38" class="u"/><text x="995" y="366" text-anchor="middle" class="x">确认并处理充电桩故障</text>
+  <ellipse cx="995" cy="500" rx="150" ry="38" class="u"/><text x="995" y="506" text-anchor="middle" class="x">恢复充电桩服务</text>
+  <ellipse cx="995" cy="640" rx="150" ry="38" class="u"/><text x="995" y="646" text-anchor="middle" class="x">查看运营报表</text>
+  <line x1="180" y1="250" x2="470" y2="180" class="l"/><line x1="180" y1="280" x2="470" y2="280" class="l"/><line x1="180" y1="310" x2="470" y2="380" class="l"/><line x1="180" y1="340" x2="470" y2="480" class="l"/><line x1="180" y1="370" x2="470" y2="580" class="l"/><line x1="180" y1="400" x2="470" y2="680" class="l"/><line x1="180" y1="430" x2="470" y2="780" class="l"/>
+  <line x1="1405" y1="300" x2="1145" y2="220" class="l"/><line x1="1405" y1="330" x2="1145" y2="360" class="l"/><line x1="1405" y1="360" x2="1145" y2="500" class="l"/><line x1="1405" y1="390" x2="1145" y2="640" class="l"/>
+</svg>

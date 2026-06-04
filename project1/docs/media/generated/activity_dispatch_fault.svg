@@ -1,0 +1,28 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="1240" viewBox="0 0 1360 1240">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#4a5568"/></marker>
+    <style>.t{font:700 28px 'Microsoft YaHei';fill:#1a202c}.h{font:600 20px 'Microsoft YaHei';fill:#1a202c}.x{font:18px 'Microsoft YaHei';fill:#2d3748}.n{fill:#f7fafc;stroke:#4a5568;stroke-width:2.4;rx:14;ry:14}.d{fill:#fffaf0;stroke:#dd6b20;stroke-width:2.4}.l{stroke:#4a5568;stroke-width:2.4;fill:none;marker-end:url(#a)}.s{fill:none;stroke:#cbd5e0;stroke-width:2;stroke-dasharray:8 8}.m{font:16px 'Microsoft YaHei';fill:#718096}</style>
+  </defs>
+  <text x="680" y="46" text-anchor="middle" class="t">充电站后台调度与故障重调度活动图</text>
+  <rect x="70" y="90" width="1220" height="1080" class="s"/>
+  <line x1="460" y1="90" x2="460" y2="1170" class="s"/><line x1="900" y1="90" x2="900" y2="1170" class="s"/>
+  <text x="265" y="126" text-anchor="middle" class="h">调度计费系统</text><text x="680" y="126" text-anchor="middle" class="h">队列/充电桩</text><text x="1095" y="126" text-anchor="middle" class="h">管理员</text>
+  <circle cx="265" cy="175" r="20" fill="#1a202c"/>
+  <rect x="135" y="225" width="260" height="64" class="n"/><text x="265" y="260" text-anchor="middle" class="x">监听等待队列和充电区资源</text><path d="M265 195 L265 225" class="l"/>
+  <polygon points="265,340 355,400 265,460 175,400" class="d"/><text x="265" y="394" text-anchor="middle" class="x">存在空闲车位且</text><text x="265" y="418" text-anchor="middle" class="x">对应队列非空？</text><path d="M265 289 L265 340" class="l"/>
+  <rect x="560" y="370" width="240" height="60" class="n"/><text x="680" y="406" text-anchor="middle" class="x">选取候选请求和候选充电桩</text><path d="M355 400 L560 400" class="l"/><text x="450" y="384" class="m">是</text>
+  <rect x="530" y="480" width="300" height="64" class="n"/><text x="680" y="513" text-anchor="middle" class="x">计算各候选分配的总完成时间</text><text x="680" y="537" text-anchor="middle" class="m">等待时长 + 充电时长</text><path d="M680 430 L680 480" class="l"/>
+  <rect x="530" y="595" width="300" height="64" class="n"/><text x="680" y="628" text-anchor="middle" class="x">选择最优桩并更新桩内队列</text><text x="680" y="652" text-anchor="middle" class="m">主调度主线</text><path d="M680 544 L680 595" class="l"/>
+  <polygon points="680,710 770,770 680,830 590,770" class="d"/><text x="680" y="764" text-anchor="middle" class="x">收到异常反馈或</text><text x="680" y="788" text-anchor="middle" class="x">检测到故障？</text><path d="M680 659 L680 710" class="l"/>
+  <rect x="120" y="740" width="290" height="60" class="n"/><text x="265" y="776" text-anchor="middle" class="x">继续等待下一次调度触发</text><path d="M175 400 L110 400 L110 770 L120 770" class="l"/><text x="120" y="384" class="m">否</text>
+  <path d="M590 770 L450 770 L450 400 L560 400" class="l"/><text x="470" y="752" class="m">否，继续主调度</text>
+  <rect x="980" y="735" width="230" height="60" class="n"/><text x="1095" y="771" text-anchor="middle" class="x">核实异常并确认故障</text><path d="M770 770 L980 770" class="l"/><text x="868" y="754" class="m">是</text>
+  <rect x="530" y="870" width="300" height="64" class="n"/><text x="680" y="903" text-anchor="middle" class="x">停用故障桩并冻结后续调度</text><text x="680" y="927" text-anchor="middle" class="m">故障处理分支</text><path d="M1095 795 L1095 902 L830 902" class="l"/>
+  <rect x="500" y="980" width="360" height="74" class="n"/><text x="680" y="1013" text-anchor="middle" class="x">保存已充电量和费用快照</text><text x="680" y="1037" text-anchor="middle" class="x">为剩余电量生成重调度请求并回到同模式队列</text><path d="M680 934 L680 980" class="l"/>
+  <polygon points="1095,860 1185,920 1095,980 1005,920" class="d"/><text x="1095" y="914" text-anchor="middle" class="x">设备维修完成？</text><path d="M1095 795 L1095 860" class="l"/>
+  <path d="M1005 920 L930 920 L930 770 L980 770" class="l"/><text x="940" y="902" class="m">否</text>
+  <rect x="995" y="1030" width="200" height="60" class="n"/><text x="1095" y="1066" text-anchor="middle" class="x">恢复充电桩服务</text><path d="M1095 980 L1095 1030" class="l"/><text x="1112" y="1004" class="m">是</text>
+  <path d="M680 1054 L680 1125 L265 1125 L265 800" class="l"/>
+  <path d="M1095 1090 L1095 1125 L265 1125" class="l"/>
+  <circle cx="265" cy="1125" r="22" fill="#1a202c"/><circle cx="265" cy="1125" r="12" fill="#ffffff"/>
+</svg>

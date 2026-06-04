@@ -1,0 +1,10 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="650" viewBox="0 0 1300 650">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2d3748"/></marker><style>.t{font:700 28px 'Microsoft YaHei';fill:#1a202c}.b{fill:#f7fafc;stroke:#2d3748;stroke-width:2.2}.x{font:18px 'Microsoft YaHei';fill:#2d3748}.l{stroke:#4a5568;stroke-width:2.2;fill:none}.m{stroke:#2d3748;stroke-width:2.4;fill:none;marker-end:url(#a)}.r{stroke:#718096;stroke-width:2.2;fill:none;stroke-dasharray:8 8;marker-end:url(#a)}</style></defs>
+  <text x="650" y="44" text-anchor="middle" class="t">UC_01 提交充电请求 SSD</text>
+  <rect x="170" y="90" width="170" height="56" class="b"/><text x="255" y="124" text-anchor="middle" class="x">充电用户</text>
+  <rect x="830" y="90" width="220" height="56" class="b"/><text x="940" y="124" text-anchor="middle" class="x">调度计费系统</text>
+  <line x1="255" y1="146" x2="255" y2="580" class="l" stroke-dasharray="10 8"/><line x1="940" y1="146" x2="940" y2="580" class="l" stroke-dasharray="10 8"/>
+  <path d="M255 220 L940 220" class="m"/><text x="598" y="204" text-anchor="middle" class="x">1: SubmitChargeRequest(userId, vehicleId, mode, targetAmount, entryToken)</text>
+  <rect x="860" y="250" width="160" height="180" class="b"/><text x="940" y="284" text-anchor="middle" class="x">系统内部处理</text><text x="940" y="322" text-anchor="middle" class="x">校验等候区资格</text><text x="940" y="358" text-anchor="middle" class="x">校验身份与车辆</text><text x="940" y="394" text-anchor="middle" class="x">校验欠费限制</text><text x="940" y="430" text-anchor="middle" class="x">创建请求并入队</text>
+  <path d="M940 500 L255 500" class="r"/><text x="598" y="486" text-anchor="middle" class="x">2: 返回受理结果、排队号、预计等待时间</text>
+</svg>

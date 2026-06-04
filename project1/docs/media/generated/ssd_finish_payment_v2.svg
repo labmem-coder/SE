@@ -1,0 +1,23 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="780" viewBox="0 0 1300 780">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2d3748"/></marker>
+    <style>
+      .title { font: 700 28px 'Microsoft YaHei', sans-serif; fill: #1a202c; }
+      .box { fill: #f7fafc; stroke: #2d3748; stroke-width: 2.2; }
+      .txt { font: 18px 'Microsoft YaHei', sans-serif; fill: #2d3748; }
+      .line { stroke: #4a5568; stroke-width: 2.2; fill: none; }
+      .msg { stroke: #2d3748; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .ret { stroke: #718096; stroke-width: 2.2; fill: none; stroke-dasharray: 8 8; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <text x="650" y="45" text-anchor="middle" class="title">UC_07 完成支付 SSD</text>
+  <rect x="170" y="90" width="170" height="56" class="box"/><text x="255" y="124" text-anchor="middle" class="txt">充电用户</text>
+  <rect x="830" y="90" width="220" height="56" class="box"/><text x="940" y="124" text-anchor="middle" class="txt">调度计费系统</text>
+  <line x1="255" y1="146" x2="255" y2="700" class="line" stroke-dasharray="10 8"/><line x1="940" y1="146" x2="940" y2="700" class="line" stroke-dasharray="10 8"/>
+  <path d="M255 220 L940 220" class="msg"/><text x="597" y="205" text-anchor="middle" class="txt">1: QueryBill(requestId)</text>
+  <rect x="870" y="245" width="140" height="170" class="box"/><text x="940" y="280" text-anchor="middle" class="txt">系统内部处理</text><text x="940" y="320" text-anchor="middle" class="txt">读取会话与充电记录</text><text x="940" y="360" text-anchor="middle" class="txt">套用分时电价规则</text><text x="940" y="400" text-anchor="middle" class="txt">生成账单明细</text>
+  <path d="M940 460 L255 460" class="ret"/><text x="597" y="445" text-anchor="middle" class="txt">2: 返回 billId、费用明细、总金额</text>
+  <path d="M255 560 L940 560" class="msg"/><text x="597" y="545" text-anchor="middle" class="txt">3: ConfirmPayment(billId, payChannel)</text>
+  <rect x="850" y="585" width="180" height="96" class="box"/><text x="940" y="620" text-anchor="middle" class="txt">系统内部处理</text><text x="940" y="652" text-anchor="middle" class="txt">更新账单状态</text><text x="940" y="678" text-anchor="middle" class="txt">解除用户欠费限制</text>
+  <path d="M940 700 L255 700" class="ret"/><text x="597" y="722" text-anchor="middle" class="txt">4: 返回支付成功与电子账单</text>
+</svg>

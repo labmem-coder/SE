@@ -1,0 +1,13 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="820" viewBox="0 0 1300 820">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2d3748"/></marker><style>.t{font:700 28px 'Microsoft YaHei';fill:#1a202c}.b{fill:#f7fafc;stroke:#2d3748;stroke-width:2.2}.x{font:18px 'Microsoft YaHei';fill:#2d3748}.l{stroke:#4a5568;stroke-width:2.2;fill:none}.m{stroke:#2d3748;stroke-width:2.4;fill:none;marker-end:url(#a)}.r{stroke:#718096;stroke-width:2.2;fill:none;stroke-dasharray:8 8;marker-end:url(#a)}</style></defs>
+  <text x="650" y="44" text-anchor="middle" class="t">UC_02 修改或取消充电请求 SSD</text>
+  <rect x="170" y="90" width="170" height="56" class="b"/><text x="255" y="124" text-anchor="middle" class="x">充电用户</text>
+  <rect x="830" y="90" width="220" height="56" class="b"/><text x="940" y="124" text-anchor="middle" class="x">调度计费系统</text>
+  <line x1="255" y1="146" x2="255" y2="740" class="l" stroke-dasharray="10 8"/><line x1="940" y1="146" x2="940" y2="740" class="l" stroke-dasharray="10 8"/>
+  <path d="M255 210 L940 210" class="m"/><text x="598" y="194" text-anchor="middle" class="x">1: UpdateChargeRequest(requestId, newMode, newTargetAmount)</text>
+  <rect x="850" y="240" width="180" height="220" class="b"/><text x="940" y="274" text-anchor="middle" class="x">系统内部处理</text><text x="940" y="312" text-anchor="middle" class="x">若仅修改电量</text><text x="940" y="344" text-anchor="middle" class="x">则更新原请求</text><text x="940" y="388" text-anchor="middle" class="x">若修改模式</text><text x="940" y="420" text-anchor="middle" class="x">则取消旧请求并新建请求</text>
+  <path d="M940 500 L255 500" class="r"/><text x="598" y="486" text-anchor="middle" class="x">2: 返回修改后的排队信息</text>
+  <path d="M255 590 L940 590" class="m"/><text x="598" y="574" text-anchor="middle" class="x">3: CancelChargeRequest(requestId)</text>
+  <rect x="860" y="620" width="160" height="80" class="b"/><text x="940" y="654" text-anchor="middle" class="x">系统内部处理</text><text x="940" y="688" text-anchor="middle" class="x">移除队列并释放资源</text>
+  <path d="M940 740 L255 740" class="r"/><text x="598" y="726" text-anchor="middle" class="x">4: 返回取消成功</text>
+</svg>

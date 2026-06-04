@@ -1,0 +1,56 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1080" viewBox="0 0 1500 1080">
+  <defs>
+    <style>
+      .t{font:700 28px 'Microsoft YaHei';fill:#1a202c}
+      .c{fill:#f7fafc;stroke:#2d3748;stroke-width:2.2;rx:10;ry:10}
+      .n{font:600 18px 'Microsoft YaHei';fill:#1a202c}
+      .l{stroke:#4a5568;stroke-width:2.2;fill:none}
+      .x{font:16px 'Microsoft YaHei';fill:#2d3748}
+    </style>
+  </defs>
+  <text x="750" y="44" text-anchor="middle" class="t">智能充电桩调度计费系统领域模型</text>
+
+  <rect x="650" y="90" width="200" height="56" class="c"/><text x="750" y="124" text-anchor="middle" class="n">ChargingStation</text>
+  <rect x="360" y="200" width="190" height="56" class="c"/><text x="455" y="234" text-anchor="middle" class="n">WaitingArea</text>
+  <rect x="940" y="200" width="190" height="56" class="c"/><text x="1035" y="234" text-anchor="middle" class="n">ChargingArea</text>
+
+  <rect x="110" y="340" width="170" height="56" class="c"/><text x="195" y="374" text-anchor="middle" class="n">User</text>
+  <rect x="110" y="450" width="170" height="56" class="c"/><text x="195" y="484" text-anchor="middle" class="n">Vehicle</text>
+  <rect x="360" y="340" width="190" height="56" class="c"/><text x="455" y="374" text-anchor="middle" class="n">WaitingQueue</text>
+  <rect x="360" y="450" width="190" height="56" class="c"/><text x="455" y="484" text-anchor="middle" class="n">ChargingRequest</text>
+  <rect x="650" y="340" width="190" height="56" class="c"/><text x="745" y="374" text-anchor="middle" class="n">ChargingPile</text>
+  <rect x="650" y="450" width="190" height="56" class="c"/><text x="745" y="484" text-anchor="middle" class="n">ChargingSession</text>
+  <rect x="940" y="340" width="190" height="56" class="c"/><text x="1035" y="374" text-anchor="middle" class="n">Bill</text>
+  <rect x="940" y="450" width="190" height="56" class="c"/><text x="1035" y="484" text-anchor="middle" class="n">FaultRecord</text>
+  <rect x="1230" y="340" width="190" height="56" class="c"/><text x="1325" y="374" text-anchor="middle" class="n">Administrator</text>
+  <rect x="1230" y="450" width="190" height="56" class="c"/><text x="1325" y="484" text-anchor="middle" class="n">AbnormalReport</text>
+  <rect x="1230" y="560" width="190" height="56" class="c"/><text x="1325" y="594" text-anchor="middle" class="n">DailyReport</text>
+  <rect x="940" y="670" width="190" height="56" class="c"/><text x="1035" y="704" text-anchor="middle" class="n">TariffRule</text>
+  <rect x="1230" y="670" width="190" height="56" class="c"/><text x="1325" y="704" text-anchor="middle" class="n">ServiceFeeRule</text>
+
+  <line x1="700" y1="146" x2="500" y2="200" class="l"/>
+  <line x1="800" y1="146" x2="980" y2="200" class="l"/>
+  <line x1="195" y1="396" x2="195" y2="450" class="l"/>
+  <line x1="455" y1="256" x2="455" y2="340" class="l"/>
+  <line x1="1035" y1="256" x2="1035" y2="340" class="l"/>
+  <line x1="280" y1="478" x2="360" y2="478" class="l"/>
+  <line x1="550" y1="478" x2="650" y2="478" class="l"/>
+  <line x1="745" y1="396" x2="745" y2="450" class="l"/>
+  <line x1="840" y1="368" x2="940" y2="368" class="l"/>
+  <line x1="840" y1="478" x2="940" y2="478" class="l"/>
+  <line x1="1130" y1="478" x2="1230" y2="478" class="l"/>
+  <line x1="1325" y1="396" x2="1325" y2="450" class="l"/>
+  <line x1="1325" y1="506" x2="1325" y2="560" class="l"/>
+  <line x1="1035" y1="396" x2="1035" y2="670" class="l"/>
+  <line x1="1130" y1="698" x2="1230" y2="698" class="l"/>
+  <line x1="1325" y1="616" x2="1325" y2="670" class="l"/>
+  <line x1="280" y1="368" x2="1230" y2="478" class="l"/>
+  <line x1="745" y1="396" x2="1230" y2="450" class="l"/>
+  <line x1="1325" y1="396" x2="1130" y2="450" class="l"/>
+
+  <text x="160" y="820" class="x">修订说明：</text>
+  <text x="160" y="854" class="x">1. 新增 AbnormalReport，补上“用户上报设备异常”在领域模型中的概念落点。</text>
+  <text x="160" y="888" class="x">2. FaultRecord 可引用 AbnormalReport 作为来源，和 UC_06、UC_09 的文本与操作契约保持一致。</text>
+  <text x="160" y="922" class="x">3. ChargingRequest、ChargingSession、Bill、FaultRecord 仍保留为主业务链，保证排队、充电、结算、故障处理的可追踪性。</text>
+  <text x="160" y="956" class="x">4. 欠费限制体现在 Bill 状态与 UC_01/UC_07 的业务规则中，不单独拆成新的领域类。</text>
+</svg>

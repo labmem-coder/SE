@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智能充电桩调度计费系统</title>
+<style>
+  :root {
+    --accent: #1f4e79;
+    --line: #d3deeb;
+    --bg-soft: #f5f8fc;
+    --text: #1f2933;
+    --muted: #6b7785;
+    --ok: #2f7d32;
+    --warn: #b26a00;
+    --err: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
+    background: var(--bg-soft);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .who { font-size: 14px; opacity: 0.9; }
+  main { max-width: 1200px; margin: 18px auto; padding: 0 18px; }
+  section {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  section h2 {
+    margin: 0; padding: 12px 16px; font-size: 15px;
+    background: #f1f6fc; border-bottom: 1px solid var(--line);
+    color: var(--accent);
+  }
+  .body { padding: 14px 16px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea {
+    font: inherit; padding: 6px 8px;
+    border: 1px solid #c9d2dd; border-radius: 4px;
+    min-width: 160px; background: white;
+  }
+  button {
+    font: inherit; padding: 6px 14px; cursor: pointer;
+    border: 1px solid var(--accent); background: var(--accent); color: white;
+    border-radius: 4px;
+  }
+  button.alt { background: white; color: var(--accent); }
+  button.danger { background: var(--err); border-color: var(--err); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { background: #f9fbfd; color: var(--muted); font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .b-ok { background: #e3f4e4; color: var(--ok); }
+  .b-warn { background: #fff1d6; color: var(--warn); }
+  .b-err { background: #ffe2df; color: var(--err); }
+  .b-info { background: #e5eef9; color: var(--accent); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .hidden { display: none; }
+  pre.json { background: #0e1726; color: #d6e0f0; padding: 10px; border-radius: 6px; font-size: 12px; overflow: auto; max-height: 220px; }
+  .toast {
+    position: fixed; right: 18px; bottom: 18px;
+    background: #222; color: white; padding: 10px 14px;
+    border-radius: 4px; opacity: 0; transition: opacity .3s;
+    z-index: 999; font-size: 13px; max-width: 360px;
+  }
+  .toast.show { opacity: 0.95; }
+  .grid-piles {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+  }
+  .pile {
+    border: 1px solid var(--line); border-radius: 6px; padding: 10px;
+    background: #fbfdff;
+  }
+  .pile h3 { margin: 0 0 6px 0; font-size: 14px; }
+  .pile .meta { font-size: 12px; color: var(--muted); }
+  .pile .progress { height: 8px; background: #eaeef4; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+  .pile .progress > div { background: var(--accent); height: 100%; transition: width .3s; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>智能充电桩调度计费系统</h1>
+  <div class="who" id="who">未登录</div>
+</header>
+
+<main>
+
+  <!-- 登录 -->
+  <section id="sec-login">
+    <h2>登录</h2>
+    <div class="body row">
+      <div>
+        <label>用户名</label>
+        <input id="login-user" placeholder="alice / admin">
+      </div>
+      <div>
+        <label>密码</label>
+        <input id="login-pwd" type="password" placeholder="密码 = 用户名">
+      </div>
+      <button onclick="doLogin()">登录</button>
+      <span class="muted">测试账号：alice / bob / carol / dave / admin</span>
+    </div>
+  </section>
+
+  <!-- 用户：提交请求 -->
+  <section class="user-only hidden" id="sec-submit">
+    <h2>UC_01 提交充电请求</h2>
+    <div class="body row">
+      <div>
+        <label>车辆</label>
+        <select id="sub-vehicle"></select>
+      </div>
+      <div>
+        <label>充电模式</label>
+        <select id="sub-mode">
+          <option value="fast">快充 (30 kW)</option>
+          <option value="slow">慢充 (7 kW)</option>
+        </select>
+      </div>
+      <div>
+        <label>目标电量 (kWh)</label>
+        <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
+      </div>
+      <div>
+        <label>入场凭证</label>
+        <input id="sub-token" value="ENTRY-TOKEN-DEMO">
+      </div>
+      <button onclick="submitRequest()">提交</button>
+    </div>
+  </section>
+
+  <!-- 用户：我的请求 -->
+  <section class="user-only hidden" id="sec-myreq">
+    <h2>我的充电请求（UC_02 / UC_03 / UC_04 / UC_05）</h2>
+    <div class="body">
+      <div style="margin-bottom:8px"><button class="alt" onclick="refreshMyRequests()">刷新</button></div>
+      <table>
+        <thead>
+          <tr>
+            <th>排队号</th><th>状态</th><th>模式</th><th>目标 kWh</th>
+            <th>等待位置</th><th>预计等待(分钟)</th><th>分配桩 / 桩内位</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tb-myreq"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 用户：账单 -->
+  <section class="user-only hidden" id="sec-bills">
+    <h2>UC_07 我的账单</h2>
+    <div class="body">
+      <div style="margin-bottom:8px"><button class="alt" onclick="refreshMyBills()">刷新</button></div>
+      <table>
+        <thead>
+          <tr>
+            <th>账单号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
+            <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tb-bills"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 用户：上报异常 -->
+  <section class="user-only hidden" id="sec-report">
+    <h2>UC_06 上报设备异常</h2>
+    <div class="body row">
+      <div>
+        <label>充电桩</label>
+        <select id="rep-pile"></select>
+      </div>
+      <div style="flex:1; min-width:240px">
+        <label>问题描述</label>
+        <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+      </div>
+      <button class="alt" onclick="reportAbnormal()">提交上报</button>
+    </div>
+  </section>
+
+  <!-- 管理员：桩状态 -->
+  <section class="admin-only hidden" id="sec-piles">
+    <h2>UC_08 充电桩状态</h2>
+    <div class="body">
+      <div style="margin-bottom:8px">
+        <button class="alt" onclick="refreshPiles()">刷新</button>
+        <span class="muted" id="queue-summary"></span>
+      </div>
+      <div class="grid-piles" id="pile-grid"></div>
+    </div>
+  </section>
+
+  <!-- 管理员：故障管理 -->
+  <section class="admin-only hidden" id="sec-fault">
+    <h2>UC_09 / UC_10 故障管理</h2>
+    <div class="body row">
+      <div>
+        <label>充电桩</label>
+        <select id="flt-pile"></select>
+      </div>
+      <div>
+        <label>故障类型</label>
+        <input id="flt-type" value="供电故障">
+      </div>
+      <button class="danger" onclick="confirmFault()">确认故障</button>
+      <button class="alt" onclick="resumePile()">恢复桩</button>
+    </div>
+    <div class="body">
+      <h3 style="margin:6px 0; font-size:13px;">未处理的用户异常上报</h3>
+      <table>
+        <thead><tr><th>ID</th><th>桩</th><th>用户</th><th>描述</th><th>时间</th><th>操作</th></tr></thead>
+        <tbody id="tb-reports"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 管理员：运营报表 -->
+  <section class="admin-only hidden" id="sec-report-ops">
+    <h2>UC_11 运营报表</h2>
+    <div class="body row">
+      <div>
+        <label>开始</label><input id="rep-from" type="date">
+      </div>
+      <div>
+        <label>结束</label><input id="rep-to" type="date">
+      </div>
+      <button class="alt" onclick="refreshReport()">查询</button>
+    </div>
+    <div class="body">
+      <pre class="json" id="report-out">点击"查询"。</pre>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";  // 同源
+let TOKEN = null;
+let USER = null;
+let VEHICLES = [];
+let PILES_CACHE = [];
+
+function toast(msg, ok = true) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = ok ? "#1f4e79" : "#b3261e";
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 2400);
+}
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({"Content-Type": "application/json"}, opts.headers || {});
+  if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
+  const r = await fetch(API + path, opts);
+  let body = null;
+  try { body = await r.json(); } catch { /* nothing */ }
+  if (!r.ok) {
+    throw new Error((body && (body.detail || body.message)) || r.statusText);
+  }
+  return body;
+}
+
+async function doLogin() {
+  const username = document.getElementById("login-user").value.trim();
+  const password = document.getElementById("login-pwd").value || username;
+  try {
+    const r = await api("/api/login", { method: "POST", body: JSON.stringify({username, password}) });
+    TOKEN = r.token;
+    USER = r;
+    document.getElementById("who").textContent = `${r.username}${r.is_admin ? " (管理员)" : ""}`;
+    document.getElementById("sec-login").classList.add("hidden");
+    if (r.is_admin) {
+      document.querySelectorAll(".admin-only").forEach(s => s.classList.remove("hidden"));
+      await loadPilesIntoSelect();
+      await refreshPiles();
+      await loadAbnormalReports();
+      const today = new Date().toISOString().slice(0, 10);
+      const weekAgo = new Date(Date.now() - 7*86400000).toISOString().slice(0, 10);
+      document.getElementById("rep-from").value = weekAgo;
+      document.getElementById("rep-to").value = today;
+    } else {
+      document.querySelectorAll(".user-only").forEach(s => s.classList.remove("hidden"));
+      const me = await api("/api/me");
+      VEHICLES = me.vehicles;
+      const sel = document.getElementById("sub-vehicle");
+      sel.innerHTML = VEHICLES.map(v => `<option value="${v.id}">${v.license_plate}</option>`).join("");
+      await loadPilesIntoSelect();  // 不一定能拿到（普通用户没接口），略
+      await refreshMyRequests();
+      await refreshMyBills();
+    }
+    toast("登录成功");
+  } catch (e) { toast("登录失败：" + e.message, false); }
+}
+
+async function loadPilesIntoSelect() {
+  try {
+    // 管理员才有这个接口；普通用户略
+    const r = await api("/api/admin/piles");
+    PILES_CACHE = r.piles;
+    const opts = r.piles.map(p => `<option value="${p.pileId}">${p.pileCode} (${p.mode === "fast" ? "快充" : "慢充"})</option>`).join("");
+    ["rep-pile", "flt-pile"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = opts;
+    });
+  } catch {
+    // 普通用户：尝试只用本地猜测的桩列表
+    const guess = ["F1","F2","S1","S2","S3"].map((c, i) => `<option value="${i+1}">${c}</option>`).join("");
+    const el = document.getElementById("rep-pile");
+    if (el) el.innerHTML = guess;
+  }
+}
+
+async function submitRequest() {
+  const vehicleId = parseInt(document.getElementById("sub-vehicle").value);
+  const mode = document.getElementById("sub-mode").value;
+  const targetAmount = parseFloat(document.getElementById("sub-target").value);
+  const entryToken = document.getElementById("sub-token").value;
+  try {
+    const r = await api("/api/requests", {
+      method: "POST",
+      body: JSON.stringify({vehicleId, mode, targetAmount, entryToken})
+    });
+    toast("已受理：" + r.queueInfo.queueNumber);
+    await refreshMyRequests();
+  } catch (e) { toast("提交失败：" + e.message, false); }
+}
+
+function statusBadge(s) {
+  const map = {
+    waiting: ["b-info", "排队中"],
+    dispatched: ["b-warn", "已叫号(待确认)"],
+    queuing_pile: ["b-info", "桩排队中"],
+    charging: ["b-ok", "充电中"],
+    completed: ["b-ok", "已完成"],
+    cancelled: ["b-err", "已取消"],
+    fault_interrupted: ["b-err", "故障中断"],
+  };
+  const [cls, label] = map[s] || ["b-info", s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+async function refreshMyRequests() {
+  const rows = await api("/api/me/requests");
+  const tb = document.getElementById("tb-myreq");
+  tb.innerHTML = rows.map(r => {
+    const actions = [];
+    if (["waiting", "dispatched", "queuing_pile"].includes(r.status)) {
+      actions.push(`<button onclick="cancelReq(${r.requestId})" class="danger">取消</button>`);
+    }
+    if (["waiting", "dispatched", "queuing_pile"].includes(r.status)) {
+      actions.push(`<button class="alt" onclick="modifyReq(${r.requestId})">改电量</button>`);
+    }
+    if (r.status === "dispatched") {
+      actions.push(`<button onclick="confirmReq(${r.requestId})">确认入场</button>`);
+    }
+    if (r.status === "completed" || r.status === "fault_interrupted") {
+      actions.push(`<button class="alt" onclick="viewBill(${r.requestId})">查账单</button>`);
+    }
+    return `<tr>
+      <td>${r.queueNumber}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${r.mode === "fast" ? "快充" : "慢充"}</td>
+      <td>${(r.estimatedWaitMinutes != null) ? (r.queueNumber) : ""}</td>
+      <td>${r.waitingPosition ?? "-"}</td>
+      <td>${r.estimatedWaitMinutes ?? "-"}</td>
+      <td>${r.assignedPileCode ? r.assignedPileCode + " / " + (r.pileQueuePosition ?? "-") : "-"}</td>
+      <td>${actions.join(" ")}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted">暂无请求</td></tr>`;
+}
+
+async function modifyReq(id) {
+  const target = prompt("新目标电量 (kWh)，空则不改:");
+  if (target == null) return;
+  const newMode = prompt("新模式 (fast/slow)，空则不改:");
+  const body = {};
+  if (target) body.newTargetAmount = parseFloat(target);
+  if (newMode) body.newMode = newMode;
+  try {
+    const r = await api(`/api/requests/${id}`, { method: "PUT", body: JSON.stringify(body) });
+    toast(r.message);
+    await refreshMyRequests();
+  } catch (e) { toast("修改失败：" + e.message, false); }
+}
+
+async function cancelReq(id) {
+  if (!confirm("确定取消？")) return;
+  try {
+    await api(`/api/requests/${id}`, { method: "DELETE" });
+    toast("已取消");
+    await refreshMyRequests();
+  } catch (e) { toast("取消失败：" + e.message, false); }
+}
+
+async function confirmReq(id) {
+  try {
+    const r = await api(`/api/requests/${id}/confirm`, { method: "POST" });
+    toast("确认成功：" + r.queueInfo.assignedPileCode);
+    await refreshMyRequests();
+  } catch (e) { toast("确认失败：" + e.message, false); }
+}
+
+async function viewBill(reqId) {
+  try {
+    const b = await api(`/api/bills/by-request/${reqId}`);
+    alert(`账单 ${b.bill_code}\n充电: ${b.charged_kwh} kWh\n充电费: ¥${b.charging_fee}\n服务费: ¥${b.service_fee}\n合计: ¥${b.total_amount}\n状态: ${b.status}`);
+  } catch (e) { toast("查询失败：" + e.message, false); }
+}
+
+async function refreshMyBills() {
+  const rows = await api("/api/me/bills");
+  const tb = document.getElementById("tb-bills");
+  tb.innerHTML = rows.map(b => {
+    const pay = b.status === "pending"
+      ? `<button onclick="payBill(${b.id})">支付</button>`
+      : `<span class="muted">${b.pay_channel || ""}</span>`;
+    return `<tr>
+      <td>${b.bill_code}</td>
+      <td>${b.charged_kwh}</td>
+      <td>¥${b.charging_fee}</td>
+      <td>¥${b.service_fee}</td>
+      <td><strong>¥${b.total_amount}</strong></td>
+      <td>${b.status === "paid" ? '<span class="badge b-ok">已支付</span>' : '<span class="badge b-warn">待支付</span>'}</td>
+      <td>${b.created_at.replace("T", " ").slice(0, 19)}</td>
+      <td>${pay}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" class="muted">暂无账单</td></tr>`;
+}
+
+async function payBill(id) {
+  const ch = prompt("支付方式（alipay / wechat / card）:", "alipay");
+  if (!ch) return;
+  try {
+    await api(`/api/bills/${id}/pay`, { method: "POST", body: JSON.stringify({payChannel: ch}) });
+    toast("支付成功");
+    await refreshMyBills();
+  } catch (e) { toast("支付失败：" + e.message, false); }
+}
+
+async function reportAbnormal() {
+  const pileId = parseInt(document.getElementById("rep-pile").value);
+  const description = document.getElementById("rep-desc").value;
+  if (!description) { toast("请填写描述", false); return; }
+  try {
+    await api("/api/reports", { method: "POST", body: JSON.stringify({pileId, description}) });
+    toast("上报成功");
+  } catch (e) { toast("上报失败：" + e.message, false); }
+}
+
+/* 管理员 */
+
+async function refreshPiles() {
+  const r = await api("/api/admin/piles");
+  PILES_CACHE = r.piles;
+  document.getElementById("queue-summary").textContent =
+    `等候区: 快充 ${r.waitingQueueFast} | 慢充 ${r.waitingQueueSlow} | 未处理上报 ${r.pendingAbnormalReports}`;
+  const grid = document.getElementById("pile-grid");
+  grid.innerHTML = r.piles.map(p => {
+    const stCls = p.status === "fault" ? "b-err" : (p.status === "occupied" ? "b-warn" : "b-ok");
+    const stLabel = {available: "空闲", occupied: "占用", fault: "故障"}[p.status] || p.status;
+    const prog = p.chargingTargetKwh
+      ? `<div class="progress"><div style="width:${(p.chargingProgressKwh / p.chargingTargetKwh * 100).toFixed(1)}%"></div></div>
+         <div class="meta">${p.chargingRequestCode}: ${p.chargingProgressKwh?.toFixed(2)} / ${p.chargingTargetKwh} kWh</div>`
+      : `<div class="meta">无在充会话</div>`;
+    return `<div class="pile">
+      <h3>${p.pileCode} <span class="badge ${stCls}">${stLabel}</span></h3>
+      <div class="meta">${p.mode === "fast" ? "快充" : "慢充"} · ${p.powerKw} kW · 队列 ${p.queueLength}/${p.queueCapacity}</div>
+      ${prog}
+      <div class="meta" style="margin-top:6px">累计: ${p.totalSessions} 次 · ${p.totalChargedKwh} kWh · ¥${p.totalRevenue}</div>
+    </div>`;
+  }).join("");
+}
+
+async function loadAbnormalReports() {
+  const rows = await api("/api/admin/abnormal-reports?only_unack=true");
+  const tb = document.getElementById("tb-reports");
+  tb.innerHTML = rows.map(r => `<tr>
+    <td>${r.id}</td>
+    <td>${r.pileCode}</td>
+    <td>${r.userId}</td>
+    <td>${r.description}</td>
+    <td>${r.reportedAt.replace("T", " ").slice(0, 19)}</td>
+    <td><button class="danger" onclick="confirmFaultFromReport(${r.pileId}, ${r.id})">确认为故障</button></td>
+  </tr>`).join("") || `<tr><td colspan="6" class="muted">无未处理上报</td></tr>`;
+}
+
+async function confirmFaultFromReport(pileId, reportId) {
+  const ft = prompt("故障类型:", "用户上报");
+  if (!ft) return;
+  try {
+    const r = await api(`/api/admin/piles/${pileId}/fault`, {
+      method: "POST",
+      body: JSON.stringify({faultType: ft, sourceReportId: reportId})
+    });
+    toast(`故障已确认，重调度 ${r.rescheduledRequests} 项`);
+    await refreshPiles();
+    await loadAbnormalReports();
+  } catch (e) { toast("失败：" + e.message, false); }
+}
+
+async function confirmFault() {
+  const pileId = parseInt(document.getElementById("flt-pile").value);
+  const faultType = document.getElementById("flt-type").value;
+  try {
+    const r = await api(`/api/admin/piles/${pileId}/fault`, {
+      method: "POST",
+      body: JSON.stringify({faultType})
+    });
+    toast(`故障已确认，重调度 ${r.rescheduledRequests} 项`);
+    await refreshPiles();
+  } catch (e) { toast("失败：" + e.message, false); }
+}
+
+async function resumePile() {
+  const pileId = parseInt(document.getElementById("flt-pile").value);
+  try {
+    await api(`/api/admin/piles/${pileId}/resume`, { method: "POST" });
+    toast("桩已恢复");
+    await refreshPiles();
+  } catch (e) { toast("失败：" + e.message, false); }
+}
+
+async function refreshReport() {
+  const f = document.getElementById("rep-from").value;
+  const t = document.getElementById("rep-to").value;
+  const q = new URLSearchParams();
+  if (f) q.set("from", f + "T00:00:00");
+  if (t) q.set("to", t + "T23:59:59");
+  try {
+    const r = await api("/api/admin/reports?" + q.toString());
+    document.getElementById("report-out").textContent = JSON.stringify(r, null, 2);
+  } catch (e) { toast("查询失败：" + e.message, false); }
+}
+
+/* 定时刷新 */
+setInterval(() => {
+  if (!TOKEN) return;
+  if (USER && USER.is_admin) {
+    refreshPiles().catch(() => {});
+  } else {
+    refreshMyRequests().catch(() => {});
+    refreshMyBills().catch(() => {});
+  }
+}, 5000);
+</script>
+
+</body>
+</html>
