@@ -1102,35 +1102,35 @@ $$T(r,p) = \mathrm{sum}(\mathrm{remain\_charge\_time\ of\ p's\ current\ queue}) 
 %==========================================================
 \section{系统事件人员分配}
 
-本节按作业要求给出``系统事件 → 责任人''的分工，便于评审追踪。组长部分由唐振桓承担；其余系统事件均匀分给四位组员，统稿、文档美化、交叉检查仍由全组协同。
+本节按作业要求给出``系统事件 → 责任人''的分工，便于评审追踪。为落实``一个任务尽量由一人独立完成''的要求，下表中每个系统事件均只指定唯一负责人，由其独立完成该事件的时序图与设计。其中调度交互与加分项属核心难点，由组长唐振桓负责；杨凌俊承担充电桩运行等较多事件，故唐振桓、杨凌俊二人任务量最多，其余事件分给袁炜途、马迪轩、刘宇轩。仅统稿、文档美化、交叉复核等整体性工作仍由全组协同（详见后表）。
 
 \subsection{系统事件分工表}
 
-\begin{longtable}{p{2.8cm}p{4.6cm}p{2.4cm}p{2.4cm}}
+\begin{longtable}{p{3.0cm}p{6.4cm}p{2.8cm}}
 \toprule
-\textbf{类别} & \textbf{系统事件} & \textbf{主要负责人} & \textbf{协作} \\
+\textbf{类别} & \textbf{系统事件} & \textbf{负责人} \\
 \midrule
 \endhead
-充电申请 & \texttt{E\_chargingRequest} & 杨凌俊 & 唐振桓 \\
-充电申请 & \texttt{Modify\_Amount} & 杨凌俊 & 袁炜途 \\
-充电申请 & \texttt{Modify\_Mode} & 袁炜途 & 杨凌俊 \\
-充电申请 & \texttt{Query\_Car\_State} & 刘宇轩 & 杨凌俊 \\
-充电申请 & \texttt{Start\_Charging} & 马迪轩 & 唐振桓 \\
-充电申请 & \texttt{Query\_Charging\_State} & 马迪轩 & 袁炜途 \\
-充电申请 & \texttt{End\_Charging} & 袁炜途 & 唐振桓 \\
-查看账单 & \texttt{Request\_Bill} & 刘宇轩 & 袁炜途 \\
-查看详单 & \texttt{Request\_DetailedList} & 刘宇轩 & 袁炜途 \\
-运行充电桩 & \texttt{powerOn} & 马迪轩 & 杨凌俊 \\
-运行充电桩 & \texttt{setParameters} & 马迪轩 & 袁炜途 \\
-运行充电桩 & \texttt{Start\_ChargingPile} & 杨凌俊 & 唐振桓 \\
-运行充电桩 & \texttt{powerOff} & 杨凌俊 & 马迪轩 \\
-查看充电桩状态 & \texttt{Query\_PileState} & 刘宇轩 & 马迪轩 \\
-查看队列状态 & \texttt{Query\_QueueState} & 袁炜途 & 刘宇轩 \\
-调度交互（组长） & 优先级调度 & \textbf{唐振桓} & 全组 \\
-调度交互（组长） & 时间顺序调度 & \textbf{唐振桓} & 全组 \\
-调度交互（组长） & 充电中故障恢复 & \textbf{唐振桓} & 全组 \\
-加分项 & 单次调度总充电时长最短 & 唐振桓 + 袁炜途 & 杨凌俊 \\
-加分项 & 批量调度总充电时长最短 & 唐振桓 + 杨凌俊 & 刘宇轩 \\
+充电申请 & \texttt{E\_chargingRequest} & 杨凌俊 \\
+充电申请 & \texttt{Modify\_Amount} & 杨凌俊 \\
+充电申请 & \texttt{Modify\_Mode} & 袁炜途 \\
+充电申请 & \texttt{Query\_Car\_State} & 袁炜途 \\
+充电申请 & \texttt{Start\_Charging} & 马迪轩 \\
+充电申请 & \texttt{Query\_Charging\_State} & 马迪轩 \\
+充电申请 & \texttt{End\_Charging} & 袁炜途 \\
+查看账单 & \texttt{Request\_Bill} & 刘宇轩 \\
+查看详单 & \texttt{Request\_DetailedList} & 刘宇轩 \\
+运行充电桩 & \texttt{powerOn} & 杨凌俊 \\
+运行充电桩 & \texttt{setParameters} & 马迪轩 \\
+运行充电桩 & \texttt{Start\_ChargingPile} & 杨凌俊 \\
+运行充电桩 & \texttt{powerOff} & 杨凌俊 \\
+查看充电桩状态 & \texttt{Query\_PileState} & 刘宇轩 \\
+查看队列状态 & \texttt{Query\_QueueState} & 袁炜途 \\
+调度交互（组长） & 优先级调度 & \textbf{唐振桓} \\
+调度交互（组长） & 时间顺序调度 & \textbf{唐振桓} \\
+调度交互（组长） & 充电中故障恢复 & \textbf{唐振桓} \\
+加分项 & 单次调度总充电时长最短 & \textbf{唐振桓} \\
+加分项 & 批量调度总充电时长最短 & \textbf{唐振桓} \\
 \bottomrule
 \end{longtable}
 
@@ -1143,11 +1143,11 @@ $$T(r,p) = \mathrm{sum}(\mathrm{remain\_charge\_time\ of\ p's\ current\ queue}) 
 \endhead
 第一章 系统架构选择及说明 & √ & √ & & & \\
 第二章 时序图绘制 & & √ & √ & √ & √ \\
-第三章 用例级类图与说明表 & √ & & √ & & √ \\
+第三章 用例级类图与说明表 & √ & √ & √ & & \\
 调度对象交互（2.6 节） & √ & & & & \\
-加分项策略（2.7 节） & √ & √ & √ & & \\
+加分项策略（2.7 节） & √ & & & & \\
 文档排版与目录 & & & & √ & √ \\
-全文复核与提交 & √ & & & & √ \\
+全文复核与提交 & & √ & √ & & \\
 \bottomrule
 \end{longtable}
 
