@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sch as :ScheduleMgr
+    participant P as :ChargingPile
+    participant Dr as :PileDriver
+    participant S as :Session(new)
+    participant DB as :SessionRepo
+    participant R as :Req
+
+    U->>C: 入位扫码 / 确认开始
+    C->>Ctrl: Start_Charging(car_Id, ChargePileNum)
+    Ctrl->>Sch: validateOnPile(car_Id, ChargePileNum)
+    Sch->>P: peekHead()
+    P-->>Sch: :Req(head)
+    alt 非头位或桩状态非空闲
+        Sch-->>Ctrl: invalid
+        Ctrl-->>C: Return(1)
+    else 校验通过
+        Ctrl->>R: setState(充电中)
+        Ctrl->>P: setState(占用)
+        Ctrl->>S: new ChargingSession(:Req, :Pile, startTime)
+        Ctrl->>Dr: startCharging(ChargePileNum, mode)
+        Dr-->>Ctrl: ack
+        Ctrl->>DB: save(:Session)
+        Ctrl-->>C: Return(0)
+        C-->>U: 显示"充电已开始"
+    end

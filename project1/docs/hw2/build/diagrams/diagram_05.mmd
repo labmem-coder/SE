@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant R as :Req
+    participant Q as :WaitingQueue
+    participant DB as :RequestRepo
+
+    U->>C: 打开查看排队
+    C->>Ctrl: Query_Car_State(car_Id)
+    Ctrl->>DB: findActiveByCar(car_Id)
+    DB-->>Ctrl: :Req
+    Ctrl->>Q: positionOf(:Req)
+    Q-->>Ctrl: car_Number_before_position
+    Ctrl->>R: getState()
+    R-->>Ctrl: car_state
+    Ctrl->>R: getQueueNum()
+    R-->>Ctrl: queue_Num
+    Ctrl->>R: getRequestTime()
+    R-->>Ctrl: request_time
+    Ctrl-->>C: Return(car_Number_before_position, car_state, queue_Num, request_time)
+    C-->>U: 刷新视图

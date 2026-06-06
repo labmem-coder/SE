@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sch as :ScheduleMgr
+    participant WA as :WaitingArea
+    participant Q as :WaitingQueue(mode)
+    participant R as :Req(new)
+    participant DB as :RequestRepo
+
+    U->>C: 输入电量 + 模式 + 提交
+    C->>Ctrl: E_chargingRequest(car_Id, Request_Amount, Request_Mode)
+    Ctrl->>DB: findActiveByCar(car_Id)
+    DB-->>Ctrl: empty
+    Ctrl->>DB: checkOverdueBill(car_Id)
+    DB-->>Ctrl: clean
+    alt 前置条件不满足
+        Ctrl-->>C: Return(1, errMsg)
+        C-->>U: 提示原因
+    else 通过校验
+        Ctrl->>Sch: createRequest(car_Id, amount, mode)
+        Sch->>WA: getQueue(mode)
+        WA-->>Sch: q:WaitingQueue
+        Sch->>R: new ChargingRequest(state=排队中)
+        Sch->>Q: enqueue(:Req)
+        Q-->>Sch: queue_Num
+        Sch->>Sch: estimate request_time / car_state / car_position
+        Sch->>DB: save(:Req)
+        Sch-->>Ctrl: result(car_position, car_state, queue_Num, request_time)
+        Ctrl-->>C: Return(car_position, car_state, queue_Num, request_time)
+        C-->>U: 显示排队信息
+    end

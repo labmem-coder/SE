@@ -1,0 +1,82 @@
+classDiagram
+    direction LR
+
+    class UserClient
+    class AdminClient
+    class ChargeRequestController
+    class BillController
+    class PileController
+    class QueueController
+    class ScheduleManager
+    class BillingService
+    class FaultService
+    class PileService
+
+    class ChargingStation
+    class WaitingArea
+    class ChargingArea
+    class WaitingQueue
+    class ChargingPile
+    class FastChargingPile
+    class SlowChargingPile
+    class User
+    class Vehicle
+    class ChargingRequest
+    class ChargingSession
+    class Bill
+    class PricingRule
+    class ServiceFeeRule
+    class AbnormalReport
+    class FaultRecord
+    class PileDriver
+
+    %% 继承
+    ChargingPile <|-- FastChargingPile
+    ChargingPile <|-- SlowChargingPile
+
+    %% 表示层 -> 边界
+    UserClient --> ChargeRequestController
+    UserClient --> BillController
+    AdminClient --> PileController
+    AdminClient --> QueueController
+
+    %% 边界 -> 控制
+    ChargeRequestController --> ScheduleManager
+    ChargeRequestController --> BillingService
+    BillController --> BillingService
+    PileController --> PileService
+    PileController --> FaultService
+    QueueController --> ScheduleManager
+
+    %% 控制 -> 实体 (持有引用)
+    ScheduleManager --> WaitingArea
+    ScheduleManager --> ChargingArea
+    ScheduleManager --> ChargingRequest
+    BillingService --> Bill
+    BillingService --> PricingRule
+    BillingService --> ServiceFeeRule
+    FaultService --> ChargingPile
+    FaultService --> FaultRecord
+    FaultService --> AbnormalReport
+    PileService --> ChargingPile
+
+    %% 实体之间的关联
+    ChargingStation --> WaitingArea
+    ChargingStation --> ChargingArea
+    WaitingArea --> WaitingQueue
+    ChargingArea --> ChargingPile
+    WaitingQueue --> ChargingRequest
+    ChargingPile --> ChargingRequest
+    User --> Vehicle
+    Vehicle --> ChargingRequest
+    ChargingRequest --> ChargingSession
+    ChargingSession --> Bill
+    Bill --> PricingRule
+    Bill --> ServiceFeeRule
+
+    %% 设备适配 (依赖)
+    PileService ..> PileDriver
+    FaultService ..> PileDriver
+    BillingService ..> ChargingSession
+    ScheduleManager ..> ChargingPile
+    QueueController ..> WaitingQueue

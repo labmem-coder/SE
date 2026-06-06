@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :BillCtrl
+    participant Bill as :BillingSvc
+    participant B as :Bill
+    participant Pr as :PricingRule
+    participant Sv as :ServiceRule
+    participant Repo as :BillRepo
+
+    U->>C: 点击账单条目
+    C->>Ctrl: Request_DetailedList(Bill_Id)
+    Ctrl->>Repo: findById(Bill_Id)
+    Repo-->>Ctrl: :Bill
+    Ctrl->>B: getSession()
+    B-->>Ctrl: :Session
+    Ctrl->>Pr: ratesBetween(start, end)
+    Pr-->>Ctrl: 分时段电价
+    Ctrl->>Sv: rate()
+    Sv-->>Ctrl: 服务费率
+    Ctrl->>Bill: explodeDetail(:Bill, rates)
+    Bill-->>Ctrl: ChargeFee/ServiceFee/subtotalFee 分段明细
+    Ctrl-->>C: Return(carId, date, Bill_Id, ChargePileNum, ChargeAmount, ChargeDuration, StartTime, EndTime, ChargeFee, ServiceFee, subtotalFee)
+    C-->>U: 渲染详单

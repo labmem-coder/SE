@@ -1,0 +1,43 @@
+classDiagram
+    direction LR
+
+    class AdminClient
+    class PileController
+    class PileService
+    class FaultService
+    class ScheduleManager
+    class BillingService
+    class ChargingPile
+    class FastChargingPile
+    class SlowChargingPile
+    class WaitingArea
+    class WaitingQueue
+    class ChargingRequest
+    class ChargingSession
+    class Bill
+    class FaultRecord
+    class AbnormalReport
+    class PileDriver
+
+    ChargingPile <|-- FastChargingPile
+    ChargingPile <|-- SlowChargingPile
+
+    AdminClient --> PileController
+    PileController --> PileService
+    PileController --> FaultService
+    FaultService --> ChargingPile
+    FaultService --> FaultRecord
+    FaultService --> AbnormalReport
+    FaultService --> ScheduleManager
+    FaultService --> BillingService
+    ScheduleManager --> WaitingArea
+    ScheduleManager --> ChargingRequest
+    WaitingArea --> WaitingQueue
+    WaitingQueue --> ChargingRequest
+    ChargingPile --> ChargingRequest
+    ChargingRequest --> ChargingSession
+    ChargingSession --> Bill
+
+    FaultService ..> PileDriver
+    PileService ..> PileDriver
+    ScheduleManager ..> ChargingPile

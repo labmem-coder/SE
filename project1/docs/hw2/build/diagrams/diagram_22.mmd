@@ -1,0 +1,45 @@
+classDiagram
+    direction LR
+
+    class UserClient
+    class ChargeRequestController
+    class ScheduleManager
+    class BillingService
+    class WaitingArea
+    class WaitingQueue
+    class ChargingArea
+    class ChargingPile
+    class FastChargingPile
+    class SlowChargingPile
+    class ChargingRequest
+    class ChargingSession
+    class Bill
+    class PricingRule
+    class ServiceFeeRule
+    class PileDriver
+    class Vehicle
+    class User
+
+    ChargingPile <|-- FastChargingPile
+    ChargingPile <|-- SlowChargingPile
+
+    UserClient --> ChargeRequestController
+    ChargeRequestController --> ScheduleManager
+    ChargeRequestController --> BillingService
+    ScheduleManager --> WaitingArea
+    ScheduleManager --> ChargingArea
+    ScheduleManager --> ChargingRequest
+    WaitingArea --> WaitingQueue
+    ChargingArea --> ChargingPile
+    WaitingQueue --> ChargingRequest
+    ChargingPile --> ChargingRequest
+    ChargingRequest --> ChargingSession
+    ChargingSession --> Bill
+    Bill --> PricingRule
+    Bill --> ServiceFeeRule
+    User --> Vehicle
+    Vehicle --> ChargingRequest
+
+    ChargeRequestController ..> PileDriver
+    BillingService ..> ChargingSession
+    ScheduleManager ..> ChargingPile

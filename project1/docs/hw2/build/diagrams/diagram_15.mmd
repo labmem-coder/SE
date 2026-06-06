@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant P as :ChargingPile
+    participant Dr as :PileDriver
+    participant Repo as :PileRepo
+
+    loop 每 N 秒定时刷新
+        C->>Ctrl: Query_PileState(pile_Id)
+        Ctrl->>Svc: queryState(pile_Id)
+        Svc->>P: getWorkingState()
+        P-->>Svc: workingState
+        Svc->>Dr: pullCounters(pile_Id)
+        Dr-->>Svc: TotalChargeNum, TotalChargeTime, TotalCapacity
+        Svc->>Repo: snapshot(:Pile)
+        Svc-->>Ctrl: state pack
+        Ctrl-->>C: Return(workingState, TotalChargeNum, TotalChargeTime, TotalCapacity)
+        C-->>A: 局部刷新视图
+    end

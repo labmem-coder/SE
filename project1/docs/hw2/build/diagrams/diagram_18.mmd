@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    participant Dr as :PileDriver
+    participant Flt as :FaultSvc
+    participant Sch as :ScheduleMgr
+    participant PF as :Pile_F(故障)
+    participant ReqY as :Req(Car_Y, Pile_F 队尾)
+    participant SessX as :Session(Car_X)
+    participant ReqX2 as :Req(Car_X 续充)
+    participant WAQ as :WaitingQueue(同模式)
+    participant PC as :PileCtrl
+
+    Dr-->>Flt: 桩告警 fault(pile_F)
+    Flt->>PF: setState(故障中)
+    Flt->>SessX: stopMeter() & snapshot(Δ)
+    Flt->>ReqX2: new ChargingRequest(remain = target-Δ, requestTime = X.submitTime)
+    Note over Flt,WAQ: 时间顺序策略：所有受影响请求 (Car_X, Car_Y, ...)<br/>都回到等待队列, 按 requestTime 排序<br/>不区分"原来就在排队"和"被故障撞回来"
+    Flt->>PF: drainAllPendingTo(WAQ)
+    Flt->>WAQ: enqueueByRequestTime(:ReqX2, :ReqY)
+    WAQ-->>Flt: 排序结果 (按 requestTime 升序)
+    Flt->>Sch: recomputeOrder(mode)
+    Sch-->>PC: 按新 FIFO 通知队首车辆所在客户端

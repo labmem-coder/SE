@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sess as :Session
+    participant Dr as :PileDriver
+    participant Pr as :PricingRule
+    participant Sv as :ServiceRule
+    participant DB as :SessionRepo
+
+    U->>C: 打开充电详情
+    C->>Ctrl: Query_Charging_State(car_Id)
+    Ctrl->>DB: findActiveSession(car_Id)
+    DB-->>Ctrl: :Session
+    Ctrl->>Dr: pullRealtime(pileId)
+    Dr-->>Ctrl: kWh, duration
+    Ctrl->>Sess: updateRealtime(kWh, duration)
+    Ctrl->>Pr: rateAt(now)
+    Pr-->>Ctrl: chargeRate
+    Ctrl->>Sv: rate()
+    Sv-->>Ctrl: serviceRate
+    Ctrl->>Ctrl: 计算实时费用 = kWh*(chargeRate+serviceRate)
+    Ctrl-->>C: Return(详单实时信息)
+    C-->>U: 显示

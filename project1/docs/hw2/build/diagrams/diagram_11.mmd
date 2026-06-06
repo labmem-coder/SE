@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant P as :ChargingPile
+    participant Dr as :PileDriver
+    participant Repo as :PileRepo
+
+    A->>C: 点击"启动"
+    C->>Ctrl: powerOn(pile_Id)
+    Ctrl->>Svc: powerOn(pile_Id)
+    Svc->>P: getState()
+    P-->>Svc: 当前 = 未通电
+    alt 状态不可上电
+        Svc-->>Ctrl: invalid
+        Ctrl-->>C: Return(1)
+    else 可上电
+        Svc->>Dr: powerOn(pile_Id)
+        Dr-->>Svc: ack
+        Svc->>P: setState(待运行)
+        Svc->>Repo: save(:Pile)
+        Svc-->>Ctrl: ok
+        Ctrl-->>C: Return(0)
+    end
+    C-->>A: 显示新状态

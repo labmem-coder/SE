@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sch as :ScheduleMgr
+    participant R as :Req
+    participant DB as :RequestRepo
+
+    U->>C: 修改电量
+    C->>Ctrl: Modify_Amount(car_Id, Amount)
+    Ctrl->>DB: findActiveByCar(car_Id)
+    DB-->>Ctrl: :Req
+    alt 已进入充电中
+        Ctrl-->>C: Return(1)
+    else 排队中或已调度未开始
+        Ctrl->>R: setTargetAmount(Amount)
+        Ctrl->>Sch: recomputeWaitTime(:Req)
+        Sch-->>Ctrl: ok
+        Ctrl->>DB: save(:Req)
+        Ctrl-->>C: Return(0)
+    end
+    C-->>U: 显示结果

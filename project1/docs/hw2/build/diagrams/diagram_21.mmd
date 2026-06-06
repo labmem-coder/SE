@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant Trg as :Trigger(周期性/桩空闲)
+    participant Sch as :ScheduleMgr
+    participant WAQ as :WaitingQueue(mode)
+    participant Pol as :ShortestBatchStrategy
+    participant PSet as :ChargingPiles(mode 全部)
+    participant PC as :PileCtrl
+
+    Trg->>Sch: triggerBatchDispatch(mode)
+    Sch->>WAQ: snapshotAll()
+    WAQ-->>Sch: R = [r1, r2, ..., rk]
+    Sch->>PSet: snapshotQueues()
+    PSet-->>Sch: 各桩当前剩余排队
+    Sch->>Pol: optimize(R, piles)
+    Note over Pol: 策略目标:<br/>min Σ_i T(r_i, assign(r_i))<br/>约束: 同模式 / 桩内 ≤ 4 位 / FIFO 受理顺序优先
+    loop 每个 r_i (按 FIFO 顺序遍历)
+        Pol->>Pol: 对每个可用 p, 估算 ΔT
+        Pol->>Pol: r_i -> argmin ΔT
+    end
+    Pol-->>Sch: 分配方案 {r_i -> p_j}
+    loop (r_i, p_j) ∈ 方案
+        Sch->>PSet: enqueueTo(p_j, :Req(r_i))
+        Sch->>WAQ: remove(:Req(r_i))
+        Sch->>PC: dispatchNotify(:Req(r_i), :Pile(p_j))
+    end
+    Note over Sch,PC: 批量调度: 一次决策 k 辆车的整体最优,<br/>显著优于逐辆贪心

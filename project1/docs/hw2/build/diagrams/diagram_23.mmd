@@ -1,0 +1,23 @@
+classDiagram
+    direction LR
+
+    class UserClient
+    class BillController
+    class BillingService
+    class Bill
+    class ChargingSession
+    class PricingRule
+    class ServiceFeeRule
+    class BillRepo
+
+    UserClient --> BillController
+    BillController --> BillingService
+    BillingService --> Bill
+    BillingService --> PricingRule
+    BillingService --> ServiceFeeRule
+    Bill --> ChargingSession
+    Bill --> PricingRule
+    Bill --> ServiceFeeRule
+
+    BillController ..> BillRepo
+    BillingService ..> ChargingSession

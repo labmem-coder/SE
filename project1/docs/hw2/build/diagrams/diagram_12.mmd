@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant Pr as :PricingRule
+    participant Sv as :ServiceRule
+    participant Dr as :PileDriver
+    participant Repo as :PriceRepo
+
+    A->>C: 录入三个时段电价 + 服务费率
+    C->>Ctrl: setParameters(billingRule, peakRate, normalRate, valleyRate, serviceRate)
+    Ctrl->>Svc: applyParameters(...)
+    Svc->>Pr: update(peak, normal, valley, validFrom)
+    Svc->>Sv: update(serviceRate, validFrom)
+    Svc->>Repo: save(:PricingRule, :ServiceRule)
+    par 同步下发到所有运行中的充电桩
+        Svc->>Dr: pushParam(pile_Id=1, params)
+        Svc->>Dr: pushParam(pile_Id=2, params)
+        Svc->>Dr: pushParam(pile_Id=3, params)
+        Svc->>Dr: pushParam(pile_Id=4, params)
+        Svc->>Dr: pushParam(pile_Id=5, params)
+    end
+    Dr-->>Svc: 全部 ack
+    Svc-->>Ctrl: ok
+    Ctrl-->>C: Return(0)
+    C-->>A: 显示"已生效"

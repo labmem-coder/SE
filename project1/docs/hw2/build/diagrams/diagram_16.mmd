@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :QueueCtrl
+    participant Sch as :ScheduleMgr
+    participant WA as :WaitingArea
+    participant Q as :WaitingQueue
+
+    A->>C: 选择要查看的队列 (含等候区+各桩排队)
+    C->>Ctrl: Query_QueueState(queuelist)
+    loop queueId ∈ queuelist
+        Ctrl->>Sch: snapshot(queueId)
+        alt queueId 为等候区队列
+            Sch->>WA: getQueue(mode)
+            WA-->>Sch: Q
+            Sch->>Q: list()
+            Q-->>Sch: List<:Req>
+        else queueId 为桩内队列
+            Sch->>Sch: pile.getQueue()
+        end
+        loop r ∈ List<:Req>
+            Sch->>Sch: estimate waitTime(r)
+        end
+        Sch-->>Ctrl: rows[(car_Id, car_Capacity, Request_Amount, waitTime)]
+    end
+    Ctrl-->>C: Return(rows)
+    C-->>A: 渲染队列表格

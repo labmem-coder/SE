@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sess as :Session
+    participant Dr as :PileDriver
+    participant Bill as :BillingSvc
+    participant P as :ChargingPile
+    participant Sch as :ScheduleMgr
+    participant DB as :SessionRepo
+
+    U->>C: 主动结束 (或达量自动触发)
+    C->>Ctrl: End_Charging(car_Id, ChargePileNum)
+    Ctrl->>Dr: stopCharging(ChargePileNum)
+    Dr-->>Ctrl: 总 kWh, 总 duration, 分时段计量
+    Ctrl->>Sess: finalize(kWh, duration, endTime)
+    Ctrl->>Bill: generateBill(:Session)
+    Bill-->>Ctrl: :Bill
+    Ctrl->>P: setState(空闲)
+    Ctrl->>Sch: onPileFreed(:Pile)
+    Sch-->>Ctrl: 触发下一辆调入
+    Ctrl->>DB: save(:Session, :Bill)
+    Ctrl-->>C: Return(0)
+    C-->>U: 显示结束、引导支付
+    Note over P,Sch: 充电桩在结束充电瞬间即释放，<br/>而非等待支付完成

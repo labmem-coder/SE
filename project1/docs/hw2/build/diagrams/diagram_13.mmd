@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant P as :ChargingPile
+    participant Sch as :ScheduleMgr
+    participant Dr as :PileDriver
+    participant Repo as :PileRepo
+
+    A->>C: 点击"运行"
+    C->>Ctrl: Start_ChargingPile(pile_Id)
+    Ctrl->>Svc: start(pile_Id)
+    Svc->>P: getState()
+    P-->>Svc: 当前 = 待运行
+    alt 状态非待运行
+        Svc-->>Ctrl: invalid
+        Ctrl-->>C: Return(1)
+    else
+        Svc->>Dr: startService(pile_Id)
+        Dr-->>Svc: ack
+        Svc->>P: setState(空闲)
+        Svc->>Repo: save(:Pile)
+        Svc->>Sch: registerAvailable(:Pile)
+        Sch-->>Svc: 若队列有等待车辆，则触发调入
+        Svc-->>Ctrl: ok
+        Ctrl-->>C: Return(0)
+    end

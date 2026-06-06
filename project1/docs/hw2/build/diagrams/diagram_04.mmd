@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :ChargeReqCtrl
+    participant Sch as :ScheduleMgr
+    participant Old as :Req(old)
+    participant New as :Req(new)
+    participant WA as :WaitingArea
+    participant Qa as :WaitingQueue(oldMode)
+    participant Qb as :WaitingQueue(newMode)
+    participant DB as :RequestRepo
+
+    U->>C: 选择新模式
+    C->>Ctrl: Modify_Mode(car_Id, Mode)
+    Ctrl->>DB: findActiveByCar(car_Id)
+    DB-->>Ctrl: :Req(old)
+    alt 已开始充电
+        Ctrl-->>C: Return(1)
+    else 仍在等候区
+        Note over Ctrl,Sch: 业务规则：跨模式不能原地切换，<br/>必须取消旧请求并以新模式重新排队
+        Ctrl->>Old: setState(已取消)
+        Ctrl->>WA: getQueue(oldMode)
+        WA-->>Ctrl: Qa
+        Ctrl->>Qa: remove(:Req(old))
+        Ctrl->>New: new ChargingRequest(mode=Mode)
+        Ctrl->>WA: getQueue(Mode)
+        WA-->>Ctrl: Qb
+        Ctrl->>Qb: enqueue(:Req(new))
+        Ctrl->>Sch: recomputeWaitTime(:Req(new))
+        Ctrl->>DB: save(both)
+        Ctrl-->>C: Return(0)
+    end
+    C-->>U: 显示结果 (新的 queue_Num)

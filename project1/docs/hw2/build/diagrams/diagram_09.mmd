@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户
+    participant C as :UserClient
+    participant Ctrl as :BillCtrl
+    participant Bill as :BillingSvc
+    participant Repo as :BillRepo
+
+    U->>C: 选择日期，查看账单
+    C->>Ctrl: Request_Bill(carId, date)
+    Ctrl->>Bill: aggregateBills(carId, date)
+    Bill->>Repo: findByCarAndDate(carId, date)
+    Repo-->>Bill: List<:Bill>
+    loop 对每条 :Bill
+        Bill->>Bill: 累加 ChargeAmount / Duration / 各费用
+    end
+    Bill-->>Ctrl: 聚合结果
+    Ctrl-->>C: Return(carId, date, Bill_Id*, ChargePileNum, ChargeAmount, ChargeDuration, StartTime, EndTime, TotalChargeFee, TotalServiceFee, TotalFee)
+    C-->>U: 渲染账单

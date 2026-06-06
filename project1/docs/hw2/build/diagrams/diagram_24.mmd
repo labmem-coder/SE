@@ -1,0 +1,33 @@
+classDiagram
+    direction LR
+
+    class AdminClient
+    class PileController
+    class PileService
+    class ScheduleManager
+    class BillingService
+    class ChargingPile
+    class FastChargingPile
+    class SlowChargingPile
+    class ChargingSession
+    class PricingRule
+    class ServiceFeeRule
+    class PileDriver
+    class PileRepo
+    class PriceRepo
+
+    ChargingPile <|-- FastChargingPile
+    ChargingPile <|-- SlowChargingPile
+
+    AdminClient --> PileController
+    PileController --> PileService
+    PileService --> ChargingPile
+    PileService --> PricingRule
+    PileService --> ServiceFeeRule
+    PileService --> ScheduleManager
+
+    PileService ..> PileDriver
+    PileService ..> PileRepo
+    PileService ..> PriceRepo
+    PileService ..> ChargingSession
+    PileService ..> BillingService

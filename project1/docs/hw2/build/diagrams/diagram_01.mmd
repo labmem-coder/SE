@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph User["用户客户端 (移动 App)"]
+        UCApp["UC_01~UC_07<br/>充电申请 / 查看账单 / 查看详单"]
+    end
+    subgraph Admin["管理员客户端 (PC 客户端)"]
+        AdApp["UC_08~UC_11<br/>运行充电桩 / 查看充电桩状态 / 查看队列状态"]
+    end
+    subgraph Server["充电站服务器"]
+        APIGW["API 网关 (鉴权/限流)"]
+        BIZ["业务逻辑层<br/>请求 · 调度 · 计费 · 故障"]
+        DAO["数据访问层"]
+        DB[("DB: 用户·车辆·请求·会话·账单·桩·队列·价格·故障")]
+        DEV["桩设备适配层 (Pile Driver)"]
+    end
+    subgraph Pile["充电桩 (2 快 + 3 慢)"]
+        P1["快充桩 #1"]
+        P2["快充桩 #2"]
+        P3["慢充桩 #3"]
+        P4["慢充桩 #4"]
+        P5["慢充桩 #5"]
+    end
+
+    User -- HTTPS --> APIGW
+    Admin -- HTTPS --> APIGW
+    APIGW --> BIZ
+    BIZ --> DAO
+    DAO --> DB
+    BIZ -- 控制指令 --> DEV
+    DEV -- 串口/MQTT --> Pile
+    Pile -- 计量/告警 --> DEV

@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    participant Sch as :ScheduleMgr
+    participant WAQ as :WaitingQueue(mode)
+    participant Pol as :ShortestSingleStrategy
+    participant PA as :ChargingPile a
+    participant PB as :ChargingPile b
+    participant PN as :ChargingPile n
+    participant PC as :PileCtrl
+
+    Sch->>WAQ: pollHead()
+    WAQ-->>Sch: :Req(r)
+    Sch->>Pol: choose(r, candidates)
+    loop p ∈ candidates
+        Pol->>p: queueRemainTime() & rate()
+        p-->>Pol: queueTime_p, rate_p
+        Pol->>Pol: T(r,p) = queueTime_p + r.amount / rate_p
+    end
+    Pol-->>Sch: argmin T(r,p) -> :Pile_best
+    Sch->>Sch: 标记其余候选不动
+    Sch->>PA: 若 p_best == a 则 enqueue(:Req)
+    Sch->>PC: dispatchNotify(:Req, :Pile_best)
+    Note over Sch,PC: 单次调度: 一次 pollHead, 只确定一辆车去哪个桩,<br/>不重排同队列其它车辆

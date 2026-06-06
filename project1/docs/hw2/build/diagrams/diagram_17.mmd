@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    participant Dr as :PileDriver
+    participant Flt as :FaultSvc
+    participant Sch as :ScheduleMgr
+    participant PF as :Pile_F(故障)
+    participant SessX as :Session(Car_X)
+    participant BillX as :BillingSvc
+    participant ReqX2 as :Req(Car_X 续充)
+    participant WAQ as :WaitingQueue(同模式)
+    participant POther as :Pile_Other(同模式空闲)
+    participant PC as :PileCtrl
+
+    Dr-->>Flt: 桩告警 fault(pile_F)
+    Flt->>PF: setState(故障中)
+    Flt->>PC: notifyAdmin(pile_F)
+    Flt->>SessX: stopMeter() & snapshot(Δ, 已发生费用)
+    SessX-->>Flt: ChargingSession 标记"故障中断"
+    Flt->>BillX: generateInterimBill(:Session)
+    Flt->>ReqX2: new ChargingRequest(remainAmount = target-Δ)
+    Note over Flt,ReqX2: 优先级策略：复用原 request_time<br/>保证 Car_X 在队列中位于所有新车之前
+    Flt->>WAQ: enqueueWithOriginalTime(:ReqX2)
+    WAQ-->>Flt: queue_Num (插队到与原始 request_time 对应位置)
+    par 同模式队首车其他车辆重排
+        Flt->>Sch: recomputeOrder(mode)
+        Sch-->>Flt: ok
+    end
+    Sch->>POther: getQueue()
+    POther-->>Sch: queue
+    alt 同模式存在空闲位
+        Sch->>POther: enqueue(:ReqX2)
+        Sch-->>PC: dispatchNotify(Car_X, Pile_Other)
+    else 暂无空闲
+        Sch-->>PC: 留在 WAQ 队首，等待最先空闲的同模式桩
+    end

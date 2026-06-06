@@ -1,0 +1,134 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand*\HyPL@Entry[1]{}
+\HyPL@Entry{0<</S/D>>}
+\gdef \LT@i {\LT@entry 
+    {1}{114.43008pt}\LT@entry 
+    {1}{182.71652pt}\LT@entry 
+    {1}{182.71652pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {1}系统架构选择及说明 (10\%)}{4}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}架构选型}{4}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}物理部署与运行视图}{4}{subsection.1.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces 物理部署与运行视图}}{4}{figure.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}三层逻辑分层}{4}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}服务器内部职责划分}{4}{subsection.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}与本次作业的对应关系}{5}{subsection.1.5}\protected@file@percent }
+\gdef \LT@ii {\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {1}{137.19194pt}\LT@entry 
+    {1}{74.59596pt}\LT@entry 
+    {1}{182.71652pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}动态结构设计 (80\%)}{6}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}设计概览与统一图例}{6}{subsection.2.1}\protected@file@percent }
+\gdef \LT@iii {\LT@entry 
+    {1}{33.90001pt}\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {1}{188.407pt}\LT@entry 
+    {1}{171.3356pt}}
+\gdef \LT@iv {\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {2}{381.88582pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}用例：充电申请}{8}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.1}已知条件}{8}{subsubsection.2.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.2}对象设计：E\_chargingRequest(car\_Id, Request\_Amount, Request\_Mode)}{8}{subsubsection.2.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.3}对象设计：Modify\_Amount(car\_Id, Amount)}{9}{subsubsection.2.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.4}对象设计：Modify\_Mode(car\_Id, Mode)}{10}{subsubsection.2.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.5}对象设计：Query\_Car\_State(car\_Id)}{12}{subsubsection.2.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.6}对象设计：Start\_Charging(car\_Id, ChargePileNum)}{12}{subsubsection.2.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.7}对象设计：Query\_Charging\_State(car\_Id)}{14}{subsubsection.2.2.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.2.8}对象设计：End\_Charging(car\_Id, ChargePileNum)}{15}{subsubsection.2.2.8}\protected@file@percent }
+\gdef \LT@v {\LT@entry 
+    {1}{29.07182pt}\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {1}{182.71652pt}\LT@entry 
+    {2}{196.9429pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}用例：查看账单 / 查看详单}{16}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}已知条件}{16}{subsubsection.2.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}对象设计：Request\_Bill(carId, date)}{16}{subsubsection.2.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}对象设计：Request\_DetailedList(Bill\_Id)}{17}{subsubsection.2.3.3}\protected@file@percent }
+\gdef \LT@vi {\LT@entry 
+    {1}{33.90001pt}\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {1}{239.62204pt}\LT@entry 
+    {1}{97.35826pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}用例：运行充电桩}{19}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.1}已知条件}{19}{subsubsection.2.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.2}对象设计：powerOn(pile\_Id)}{19}{subsubsection.2.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.3}对象设计：setParameters(计费规则, 三个时段的电价数据等)}{19}{subsubsection.2.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.4}对象设计：Start\_ChargingPile(pile\_Id)}{21}{subsubsection.2.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.4.5}对象设计：powerOff(pile\_Id)}{21}{subsubsection.2.4.5}\protected@file@percent }
+\gdef \LT@vii {\LT@entry 
+    {1}{33.90001pt}\LT@entry 
+    {1}{114.43008pt}\LT@entry 
+    {1}{182.71652pt}\LT@entry 
+    {1}{154.26378pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}用例：查看充电桩状态 / 查看队列状态}{24}{subsection.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.5.1}已知条件}{24}{subsubsection.2.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.5.2}对象设计：Query\_PileState(pile\_Id)}{24}{subsubsection.2.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.5.3}对象设计：Query\_QueueState(queuelist)}{25}{subsubsection.2.5.3}\protected@file@percent }
+\gdef \LT@viii {\LT@entry 
+    {1}{29.07182pt}\LT@entry 
+    {1}{91.6678pt}\LT@entry 
+    {1}{182.71652pt}\LT@entry 
+    {2}{182.71652pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}用例：调度对象核心交互（组长部分）}{27}{subsection.2.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.6.1}已知条件}{27}{subsubsection.2.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.6.2}对象设计：优先级调度}{28}{subsubsection.2.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.6.3}对象设计：时间顺序调度}{28}{subsubsection.2.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.6.4}对象设计：充电中故障恢复}{29}{subsubsection.2.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}可选加分调度策略}{30}{subsection.2.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.7.1}对象设计：单次调度总充电时长最短}{30}{subsubsection.2.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.7.2}对象设计：批量调度总充电时长最短}{30}{subsubsection.2.7.2}\protected@file@percent }
+\gdef \LT@ix {\LT@entry 
+    {1}{114.43008pt}\LT@entry 
+    {1}{165.6447pt}\LT@entry 
+    {2}{196.9429pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}静态结构设计 (10\%)}{32}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}用例：充电申请}{32}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.1.1}软件分层类图}{32}{subsubsection.3.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.1.2}属性与方法说明}{32}{subsubsection.3.1.2}\protected@file@percent }
+\gdef \LT@x {\LT@entry 
+    {1}{108.73918pt}\LT@entry 
+    {1}{171.3356pt}\LT@entry 
+    {1}{196.9429pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}用例：查看账单 / 查看详单}{35}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.1}软件分层类图}{35}{subsubsection.3.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.2.2}属性与方法说明}{35}{subsubsection.3.2.2}\protected@file@percent }
+\gdef \LT@xi {\LT@entry 
+    {1}{108.73918pt}\LT@entry 
+    {1}{171.3356pt}\LT@entry 
+    {2}{196.9429pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}用例：运行充电桩}{36}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}软件分层类图}{36}{subsubsection.3.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}属性与方法说明}{36}{subsubsection.3.3.2}\protected@file@percent }
+\gdef \LT@xii {\LT@entry 
+    {1}{114.43008pt}\LT@entry 
+    {1}{165.6447pt}\LT@entry 
+    {2}{196.9429pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}用例：查看充电桩状态 / 查看队列状态}{38}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}软件分层类图}{38}{subsubsection.3.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}属性与方法说明}{38}{subsubsection.3.4.2}\protected@file@percent }
+\gdef \LT@xiii {\LT@entry 
+    {1}{114.43008pt}\LT@entry 
+    {1}{165.6447pt}\LT@entry 
+    {2}{196.9429pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}用例：调度对象核心交互}{40}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.5.1}软件分层类图}{40}{subsubsection.3.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.5.2}属性与方法说明}{40}{subsubsection.3.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}系统级的静态结构（可选）}{42}{subsection.3.6}\protected@file@percent }
+\gdef \LT@xiv {\LT@entry 
+    {1}{91.6678pt}\LT@entry 
+    {1}{142.88284pt}\LT@entry 
+    {1}{80.28644pt}\LT@entry 
+    {1}{80.28644pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}系统事件人员分配}{43}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}系统事件分工表}{43}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}文档与统稿分工}{43}{subsection.4.2}\protected@file@percent }
+\gdef \LT@xv {\LT@entry 
+    {1}{142.88284pt}\LT@entry 
+    {1}{44.85pt}\LT@entry 
+    {1}{44.85pt}\LT@entry 
+    {1}{44.85pt}\LT@entry 
+    {1}{44.85pt}\LT@entry 
+    {1}{44.85pt}}
+\gdef \@abspage@last{44}

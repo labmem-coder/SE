@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant Flt as :FaultSvc
+    participant Dr as :PileDriver
+    participant PF as :Pile_F
+    participant Sch as :ScheduleMgr
+    participant WAQ as :WaitingQueue(同模式)
+    participant Bill as :BillingSvc
+
+    A->>C: 维修完成，点击"恢复"
+    C->>Ctrl: ResumePile(pile_F)
+    Ctrl->>Svc: resume(pile_F)
+    Svc->>Dr: selfTest(pile_F)
+    Dr-->>Svc: pass
+    Svc->>PF: setState(空闲)
+    Svc->>Flt: closeFaultRecord(pile_F, endTime)
+    Flt->>Bill: finalizeInterruptedSessions(pile_F)
+    Note over Bill: 把"故障中断"会话的快照费用<br/>合并到主账单 (若已生成新账单则关联)
+    Svc->>Sch: registerAvailable(:Pile_F)
+    alt WAQ 非空
+        Sch->>WAQ: peek()
+        WAQ-->>Sch: :Req(head)
+        Sch->>PF: enqueue(:Req(head))
+        Sch->>Ctrl: dispatchNotify(:Req(head), :Pile_F)
+        Note over Sch,Ctrl: 同时复用 5 分钟超时机制：<br/>未确认入场则取消并选下一位
+    end
+    Ctrl-->>C: Return(0)
+    C-->>A: 显示"已恢复"

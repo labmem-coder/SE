@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor A as 管理员
+    participant C as :AdminClient
+    participant Ctrl as :PileCtrl
+    participant Svc as :PileSvc
+    participant P as :ChargingPile
+    participant Sch as :ScheduleMgr
+    participant Sess as :Session
+    participant Bill as :BillingSvc
+    participant Dr as :PileDriver
+
+    A->>C: 点击"关闭"
+    C->>Ctrl: powerOff(pile_Id)
+    Ctrl->>Svc: powerOff(pile_Id)
+    Svc->>P: hasActiveSession()
+    alt 当前正在充电
+        P-->>Svc: :Session
+        Svc->>Sess: finalize(strSnapshot)
+        Svc->>Bill: generateBill(:Session)
+        Svc->>Sch: returnWaitersToWaitingArea(:Pile)
+        Svc->>Dr: stopService(pile_Id)
+    else 当前空闲
+        P-->>Svc: null
+        Svc->>Dr: powerOff(pile_Id)
+    end
+    Dr-->>Svc: ack
+    Svc->>P: setState(关闭)
+    Svc->>Sch: unregisterAvailable(:Pile)
+    Svc-->>Ctrl: ok
+    Ctrl-->>C: Return(0)
+    C-->>A: 显示已关闭
