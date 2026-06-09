@@ -68,7 +68,7 @@ def seed() -> None:
         for i in range(1, FAST_PILE_COUNT + 1):
             _ensure_pile(db, f"F{i}", ChargeMode.FAST, FAST_PILE_POWER_KW)
         for i in range(1, SLOW_PILE_COUNT + 1):
-            _ensure_pile(db, f"S{i}", ChargeMode.SLOW, SLOW_PILE_POWER_KW)
+            _ensure_pile(db, f"T{i}", ChargeMode.SLOW, SLOW_PILE_POWER_KW)
 
         # 管理员
         admin = _ensure_user(db, "admin", "admin", "充电站管理员", is_admin=True)

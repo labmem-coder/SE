@@ -47,6 +47,7 @@ class PileStatus(str, enum.Enum):
 
 class RequestStatus(str, enum.Enum):
     WAITING = "waiting"                # 在等待队列中（未调度）
+    FAULT_QUEUED = "fault_queued"      # 因桩故障被腾出的车，享最高调度优先级；不计入等候区 N
     DISPATCHED = "dispatched"          # 已分桩，等待用户响应叫号（5 分钟窗口）
     QUEUING_PILE = "queuing_pile"      # 用户已确认入场，在某桩的排队队列里
     CHARGING = "charging"              # 正在充电

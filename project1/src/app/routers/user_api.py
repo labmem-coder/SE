@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..auth import current_user, make_token, verify_password
-from ..config import BILL_OVERDUE_HOURS, REQUEST_CODE_PREFIX
+from ..config import BILL_OVERDUE_HOURS, REQUEST_CODE_PREFIX, WAITING_AREA_SIZE
 from ..db import get_db
 from ..models import (
     AbnormalReport,
@@ -120,6 +120,19 @@ def _vehicle_has_active_request(db: Session, vehicle_id: int) -> bool:
     )
 
 
+def _waiting_area_count(db: Session) -> int:
+    """当前等候区中的车辆数。
+
+    注意：故障腾出的车在 FAULT_QUEUED 状态，按 spec 享受最高调度优先级，
+    属于"损坏桩队列"而非"等候区"，不计入 N=10 上限。
+    """
+    return (
+        db.query(ChargingRequest)
+        .filter(ChargingRequest.status == RequestStatus.WAITING)
+        .count()
+    )
+
+
 def _validate_entry_token(token: str) -> bool:
     """等候区入场凭证。课程项目中接受任何非空字符串。"""
     return bool(token and token.strip())
@@ -176,6 +189,19 @@ def submit_charge_request(
     if _user_has_overdue_unpaid_bill(db, user.id):
         raise HTTPException(
             status_code=402, detail="user has overdue unpaid bill, please settle first"
+        )
+
+    # 前置条件 6：等候区容量 N=WAITING_AREA_SIZE 不能超。
+    # spec："等候区外的请求暂时不考虑" —— 等候区满时新请求被拒收。
+    # 注意：FAULT_QUEUED（损坏桩队列）按 spec 不占等候区名额，本检查只看 WAITING。
+    try_dispatch(db)
+    if _waiting_area_count(db) >= WAITING_AREA_SIZE:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"waiting area is full (capacity={WAITING_AREA_SIZE}); "
+                "request rejected as it would be outside the waiting area"
+            ),
         )
 
     # 创建请求
@@ -259,7 +285,12 @@ def update_charge_request(
     if req is None or req.user_id != user.id:
         raise HTTPException(status_code=404, detail="request not found")
     # 前置条件 2：仅在"未开始充电"前可改
-    if req.status not in (RequestStatus.WAITING, RequestStatus.DISPATCHED, RequestStatus.QUEUING_PILE):
+    if req.status not in (
+        RequestStatus.WAITING,
+        RequestStatus.FAULT_QUEUED,
+        RequestStatus.DISPATCHED,
+        RequestStatus.QUEUING_PILE,
+    ):
         raise HTTPException(
             status_code=409, detail=f"cannot modify request in status {req.status.value}"
         )
@@ -340,7 +371,6 @@ def cancel_charge_request(
     if req is None or req.user_id != user.id:
         raise HTTPException(status_code=404, detail="request not found")
     if req.status in (
-        RequestStatus.CHARGING,
         RequestStatus.COMPLETED,
         RequestStatus.CANCELLED,
         RequestStatus.FAULT_INTERRUPTED,
@@ -351,6 +381,24 @@ def cancel_charge_request(
 
     now = datetime.utcnow()
     affected_pile_id = req.assigned_pile_id
+
+    # 用户在充电中取消：停止会话，按已充电量出账单（spec 允许）。
+    if req.status == RequestStatus.CHARGING and req.session is not None:
+        advance_active_sessions(db, now)
+        sess = req.session
+        sess.status = SessionStatus.COMPLETED
+        sess.ended_at = now
+        if sess.charged_kwh > 0:
+            from .. import pricing as _pricing
+            bill = _pricing.generate_bill(db, sess)
+            sess.pile.total_sessions += 1
+            sess.pile.total_charged_kwh = round(
+                sess.pile.total_charged_kwh + sess.charged_kwh, 4
+            )
+            sess.pile.total_revenue = round(
+                sess.pile.total_revenue + bill.total_amount, 2
+            )
+
     req.status = RequestStatus.CANCELLED
     req.cancelled_at = now
     req.assigned_pile_id = None

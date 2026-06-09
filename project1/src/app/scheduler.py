@@ -317,11 +317,62 @@ def try_dispatch(db: Session) -> int:
     return dispatched_total
 
 
+def _dispatch_one(db: Session, req: ChargingRequest) -> bool:
+    """把单个请求派到该模式下"完成时间最短"的桩。成功返回 True。"""
+    piles = (
+        db.query(ChargingPile)
+        .filter(
+            ChargingPile.mode == req.mode,
+            ChargingPile.status != PileStatus.FAULT,
+        )
+        .all()
+    )
+    best = None  # (finish_hours, pile)
+    for pile in piles:
+        slots_used = pile_slot_count(db, pile.id)
+        if slots_used >= pile.queue_capacity:
+            continue
+        fh = estimate_finish_hours(db, pile, req)
+        if best is None or fh < best[0]:
+            best = (fh, pile)
+    if best is None:
+        return False
+    _, chosen_pile = best
+    now = datetime.utcnow()
+    req.status = RequestStatus.DISPATCHED
+    req.assigned_pile_id = chosen_pile.id
+    req.dispatched_at = now
+    if chosen_pile.status == PileStatus.AVAILABLE:
+        chosen_pile.status = PileStatus.OCCUPIED
+    db.flush()
+    return True
+
+
 def _dispatch_mode(db: Session, mode: ChargeMode) -> int:
-    """对单一模式重复派发直到没空位或没等待请求。"""
+    """对单一模式重复派发：
+       Phase 1 故障队列：spec 要求"优先调度损坏充电桩队列里的车直至全部进入充电区"。
+       Phase 2 等候区：仅在故障队列被全部排空后，才调度普通等候区。"""
     count = 0
+    # ── Phase 1: FAULT_QUEUED 优先 ──
     while True:
-        # 取该模式下 priority_time 最小的等待请求
+        req = (
+            db.query(ChargingRequest)
+            .filter(
+                ChargingRequest.mode == mode,
+                ChargingRequest.status == RequestStatus.FAULT_QUEUED,
+            )
+            .order_by(ChargingRequest.priority_time.asc())
+            .first()
+        )
+        if not req:
+            break
+        if not _dispatch_one(db, req):
+            # 故障队列还有车未派出去 → spec 要求暂停等候区调度
+            return count
+        count += 1
+
+    # ── Phase 2: WAITING ──
+    while True:
         req = (
             db.query(ChargingRequest)
             .filter(
@@ -333,37 +384,9 @@ def _dispatch_mode(db: Session, mode: ChargeMode) -> int:
         )
         if not req:
             return count
-
-        # 找该模式可用且未满员的桩，挑"该车完成时间最短"的
-        piles = (
-            db.query(ChargingPile)
-            .filter(
-                ChargingPile.mode == mode,
-                ChargingPile.status != PileStatus.FAULT,
-            )
-            .all()
-        )
-        best = None       # (finish_hours, pile)
-        for pile in piles:
-            slots_used = pile_slot_count(db, pile.id)
-            if slots_used >= pile.queue_capacity:
-                continue
-            fh = estimate_finish_hours(db, pile, req)
-            if best is None or fh < best[0]:
-                best = (fh, pile)
-
-        if best is None:
-            return count  # 该模式没有空车位，停止派发
-
-        _, chosen_pile = best
-        now = datetime.utcnow()
-        req.status = RequestStatus.DISPATCHED
-        req.assigned_pile_id = chosen_pile.id
-        req.dispatched_at = now
-        if chosen_pile.status == PileStatus.AVAILABLE:
-            chosen_pile.status = PileStatus.OCCUPIED
+        if not _dispatch_one(db, req):
+            return count
         count += 1
-        db.flush()
 
 
 # ────────────────────────────────────────────────────────────────────────────

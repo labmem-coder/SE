@@ -110,7 +110,7 @@ def confirm_pile_fault(
 
         original_req.status = RequestStatus.FAULT_INTERRUPTED
 
-        # 为剩余电量创建重调度请求
+        # 为剩余电量创建重调度请求（spec：进入故障队列，享最高优先级，不占等候区）
         remaining = round(active_session.target_kwh - active_session.charged_kwh, 4)
         if remaining > 0.01:
             new_req = ChargingRequest(
@@ -119,7 +119,7 @@ def confirm_pile_fault(
                 vehicle_id=original_req.vehicle_id,
                 mode=original_req.mode,
                 target_amount_kwh=remaining,
-                status=RequestStatus.WAITING,
+                status=RequestStatus.FAULT_QUEUED,
                 # 保留原始排队优先信息 —— 这是公平性关键
                 priority_time=original_req.priority_time,
                 queue_number=_assign_queue_number(db, original_req.mode),
@@ -130,7 +130,7 @@ def confirm_pile_fault(
             rescheduled_count += 1
         interrupted_session_id = active_session.id
 
-    # 3) 处理已分桩但未开始充电的请求（DISPATCHED + QUEUING_PILE）→ 回到等待队列
+    # 3) 处理已分桩但未开始充电的请求（DISPATCHED + QUEUING_PILE）→ 进入故障队列
     pending = (
         db.query(ChargingRequest)
         .filter(
@@ -142,7 +142,7 @@ def confirm_pile_fault(
         .all()
     )
     for r in pending:
-        r.status = RequestStatus.WAITING
+        r.status = RequestStatus.FAULT_QUEUED
         r.assigned_pile_id = None
         r.pile_queue_arrived_at = None
         r.dispatched_at = None
