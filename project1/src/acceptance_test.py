@@ -175,9 +175,12 @@ def apply_event(when: datetime, ev_type: str, obj: str, mode_op: str, value: flo
     """返回事件标签后缀，例如 '' 表示成功，'REJECTED' 表示被拒收。"""
     _set_now(when)
     with SessionLocal() as db:
-        # 先把所有时间相关状态推进到 `when`
-        app_sched.advance_active_sessions(db, when)
-        app_sched.handle_completed_sessions(db)
+        # 关键：在处理事件之前先把"已经自然发生"的状态推进 + 调度完。
+        # 比如 V5 在 08:25:00 自然充满 → V8 接上 → V25 应入 T2。
+        # 这样后续的 T1 故障事件再发生时，V1 已经抢不到 T2 的空位
+        # （符合 spec "故障发生后才停止等候区调度"）。
+        app_sched.try_dispatch(db)
+        _auto_confirm_dispatched(db, when)
 
         if ev_type == "A":
             vehicle_id = _vehicle_id(db, obj)
