@@ -5,563 +5,1301 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>智能充电桩调度计费系统</title>
 <style>
+  /* ============================================================
+     DESIGN TOKENS — Smart Grid Terminal
+     Palette grounded in EV charging: blue energy, cool slate,
+     monospace data readouts.  No warm-cream, no acid-on-black.
+     ============================================================ */
   :root {
-    --accent: #1f4e79;
-    --line: #d3deeb;
-    --bg-soft: #f5f8fc;
-    --text: #1f2933;
-    --muted: #6b7785;
-    --ok: #2f7d32;
-    --warn: #b26a00;
-    --err: #b3261e;
+    /* ── core palette ── */
+    --ink:        #0f172a;
+    --ink-light:  #334155;
+    --muted:      #64748b;
+    --line:       #e2e8f0;
+    --surface:    #ffffff;
+    --bg:         #f1f5f9;
+
+    /* ── energy accents ── */
+    --electric:   #2563eb;   /* blue-600 — primary energy */
+    --electric-bright: #3b82f6;
+    --electric-dim:    #1e40af;
+    --electric-glow:   #dbeafe;   /* blue-50  */
+
+    /* ── semantic ── */
+    --ok:         #059669;
+    --ok-soft:    #d1fae5;
+    --warn:       #d97706;
+    --warn-soft:  #fef3c7;
+    --err:        #dc2626;
+    --err-soft:   #fee2e2;
+
+    /* ── geometry ── */
+    --radius-sm:  6px;
+    --radius:     12px;
+    --radius-lg:  18px;
+    --shadow-sm:  0 1px 2px rgba(0,0,0,.04);
+    --shadow:     0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:  0 4px 6px rgba(0,0,0,.05), 0 2px 4px rgba(0,0,0,.04);
+    --shadow-lg:  0 10px 25px rgba(0,0,0,.07), 0 4px 10px rgba(0,0,0,.04);
+
+    /* ── type scale ── */
+    --font-ui:    "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    --font-mono:  "Cascadia Code", "SF Mono", "Consolas", "Courier New", monospace;
   }
-  * { box-sizing: border-box; }
+
+  /* ============================================================
+     RESET & BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { font-size: 15px; }
+
   body {
-    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, sans-serif;
-    background: var(--bg-soft);
-    color: var(--text);
-    margin: 0;
-    padding: 0;
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
-  header {
-    background: var(--accent);
-    color: white;
-    padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between;
+
+  /* subtle grid background — energy grid */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(148,163,184,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
   }
-  header h1 { font-size: 18px; margin: 0; }
-  header .who { font-size: 14px; opacity: 0.9; }
-  main { max-width: 1200px; margin: 18px auto; padding: 0 18px; }
-  section {
-    background: white;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    margin-bottom: 18px;
+
+  /* ============================================================
+     HEADER  —  signature: energy-wave gradient + live indicator
+     ============================================================ */
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 40%, #0f172a 100%);
+    color: #fff;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 2px 12px rgba(30,64,175,.25);
+  }
+  .app-header .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: .02em;
+  }
+  .app-header .brand .bolt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px; height: 30px;
+    background: var(--electric-bright);
+    border-radius: 6px;
+    font-size: 1.1rem;
+    animation: bolt-glow 2.4s ease-in-out infinite;
+  }
+  @keyframes bolt-glow {
+    0%, 100% { box-shadow: 0 0 6px rgba(59,130,246,.5); }
+    50%      { box-shadow: 0 0 18px rgba(59,130,246,.9), 0 0 32px rgba(59,130,246,.3); }
+  }
+  .app-header .user-slot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: .85rem;
+  }
+  .app-header .role-tag {
+    background: rgba(255,255,255,.14);
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 500;
+  }
+  .btn-logout {
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: .78rem;
+    font-family: var(--font-ui);
+    transition: background .2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,.18); }
+  .btn-logout:focus-visible { outline: 2px solid var(--electric-bright); outline-offset: 2px; }
+
+  /* ============================================================
+     MAIN CONTAINER
+     ============================================================ */
+  .app-main {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 22px 22px 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ============================================================
+     LOGIN CARD
+     ============================================================ */
+  .login-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 40px 36px;
+    max-width: 420px;
+    margin: 60px auto 0;
+    text-align: center;
+  }
+  .login-card .login-icon { font-size: 3rem; margin-bottom: 8px; }
+  .login-card h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+  .login-card .sub { font-size: .85rem; color: var(--muted); margin-bottom: 22px; }
+  .login-card .field { text-align: left; margin-bottom: 12px; }
+  .login-card .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--ink-light); margin-bottom: 4px; }
+  .login-card .field input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-ui);
+    font-size: .95rem;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  .login-card .field input:focus { border-color: var(--electric); outline: none; box-shadow: 0 0 0 3px var(--electric-glow); }
+  .login-card .btn-login {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    background: var(--electric-dim);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: background .18s;
+  }
+  .login-card .btn-login:hover { background: #1e3a8a; }
+  .login-card .accounts {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+  }
+  .login-card .accounts span {
+    background: var(--bg);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: .72rem;
+    font-family: var(--font-mono);
+  }
+
+  /* ============================================================
+     DASHBOARD STAT CARDS  (user + admin)
+     ============================================================ */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--electric);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transition: transform .18s, box-shadow .18s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat-card.warn  { border-left-color: var(--warn); }
+  .stat-card.ok    { border-left-color: var(--ok); }
+  .stat-card.err   { border-left-color: var(--err); }
+  .stat-card .stat-label { font-size: .7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .stat-card .stat-value { font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700; color: var(--ink); }
+  .stat-card .stat-sub  { font-size: .72rem; color: var(--muted); }
+
+  /* ============================================================
+     SECTION CARDS
+     ============================================================ */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
     overflow: hidden;
   }
-  section h2 {
-    margin: 0; padding: 12px 16px; font-size: 15px;
-    background: #f1f6fc; border-bottom: 1px solid var(--line);
-    color: var(--accent);
+  .card-head {
+    padding: 13px 20px;
+    background: #fafbfc;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
   }
-  .body { padding: 14px 16px; }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  input, select, textarea {
-    font: inherit; padding: 6px 8px;
-    border: 1px solid #c9d2dd; border-radius: 4px;
-    min-width: 160px; background: white;
+  .card-head h3 { font-size: .93rem; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .card-body { padding: 16px 20px; }
+  .card-body.flat { padding: 0; }
+
+  /* ============================================================
+     FORMS
+     ============================================================ */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .form-row > .fg { flex: 1; min-width: 130px; }
+  .fg label { display: block; font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
+  .fg input, .fg select, .fg textarea {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: .88rem;
+    padding: 7px 10px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    transition: border-color .18s, box-shadow .18s;
   }
-  button {
-    font: inherit; padding: 6px 14px; cursor: pointer;
-    border: 1px solid var(--accent); background: var(--accent); color: white;
-    border-radius: 4px;
+  .fg input:focus, .fg select:focus, .fg textarea:focus {
+    border-color: var(--electric);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--electric-glow);
   }
-  button.alt { background: white; color: var(--accent); }
-  button.danger { background: var(--err); border-color: var(--err); }
-  button:disabled { opacity: 0.4; cursor: not-allowed; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; }
-  th { background: #f9fbfd; color: var(--muted); font-weight: 600; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
-  .b-ok { background: #e3f4e4; color: var(--ok); }
-  .b-warn { background: #fff1d6; color: var(--warn); }
-  .b-err { background: #ffe2df; color: var(--err); }
-  .b-info { background: #e5eef9; color: var(--accent); }
-  .muted { color: var(--muted); font-size: 12px; }
-  .hidden { display: none; }
-  pre.json { background: #0e1726; color: #d6e0f0; padding: 10px; border-radius: 6px; font-size: 12px; overflow: auto; max-height: 220px; }
+
+  /* ============================================================
+     BUTTONS
+     ============================================================ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-ui);
+    font-size: .8rem;
+    font-weight: 600;
+    padding: 7px 15px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .18s;
+  }
+  .btn:focus-visible { outline: 2px solid var(--electric); outline-offset: 2px; }
+  .btn-pri  { background: var(--electric-dim); color: #fff; }
+  .btn-pri:hover { background: #1e3a8a; }
+  .btn-out  { background: #fff; color: var(--electric-dim); border-color: var(--electric-dim); }
+  .btn-out:hover { background: var(--electric-glow); }
+  .btn-ghost { background: transparent; color: var(--ink-light); border-color: var(--line); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-danger { background: var(--err); color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { font-size: .74rem; padding: 4px 10px; }
+  .btn:disabled { opacity: .4; pointer-events: none; }
+
+  /* ============================================================
+     TABLES
+     ============================================================ */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  thead th {
+    padding: 10px 10px;
+    text-align: left;
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    background: #fafbfc;
+    border-bottom: 2px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ============================================================
+     BADGES
+     ============================================================ */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-info    { background: var(--electric-glow); color: var(--electric-dim); }
+  .badge-success { background: var(--ok-soft); color: var(--ok); }
+  .badge-warning { background: var(--warn-soft); color: var(--warn); }
+  .badge-danger  { background: var(--err-soft); color: var(--err); }
+  .badge-neutral { background: #f1f5f9; color: var(--muted); }
+
+  /* ============================================================
+     PILE GRID  (admin)
+     ============================================================ */
+  .pile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 14px;
+  }
+  .pile-card {
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    background: var(--surface);
+    transition: all .18s;
+    position: relative;
+  }
+  .pile-card:hover { border-color: var(--electric); box-shadow: var(--shadow-md); }
+  .pile-card.fault { border-color: var(--err); background: #fff5f5; }
+  .pile-card .pile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pile-card .pile-code { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; }
+  .pile-card .pile-mode { font-size: .75rem; color: var(--muted); margin-bottom: 8px; }
+  .pile-card .prog-bar { height: 8px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
+  .pile-card .prog-bar > div {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--electric);
+    transition: width .5s ease;
+  }
+  .pile-card .prog-bar > div.animated {
+    background: linear-gradient(90deg, var(--electric-dim), var(--electric-bright), var(--electric-dim));
+    background-size: 200% 100%;
+    animation: flow 2s linear infinite;
+  }
+  @keyframes flow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .pile-card .pile-foot { display: flex; gap: 12px; font-size: .72rem; color: var(--muted); margin-top: 6px; }
+  .pile-card .pile-foot strong { color: var(--ink); font-family: var(--font-mono); }
+  .pile-card .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: live-pulse 1.4s infinite;
+  }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .35; transform: scale(1.5); }
+  }
+
+  /* ============================================================
+     DATA BARS  (CSS-only charts)
+     ============================================================ */
+  .data-bar-group { display: flex; flex-direction: column; gap: 8px; }
+  .data-bar-row  { display: flex; align-items: center; gap: 8px; font-size: .78rem; }
+  .data-bar-row .bar-label { width: 70px; text-align: right; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+  .data-bar-row .bar-track { flex: 1; height: 18px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
+  .data-bar-row .bar-fill { height: 100%; border-radius: 10px; background: var(--electric); transition: width .6s ease; display: flex; align-items: center; padding-left: 8px; }
+  .data-bar-row .bar-fill.fast { background: var(--electric-dim); }
+  .data-bar-row .bar-fill.slow { background: var(--electric-bright); }
+  .data-bar-row .bar-val { font-family: var(--font-mono); font-size: .75rem; font-weight: 600; width: 48px; flex-shrink: 0; }
+
+  /* ============================================================
+     CHARGE PROGRESS CARD  (user)
+     ============================================================ */
+  .charge-prog {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+  }
+  .charge-prog .prog-ring {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 5px solid #e2e8f0;
+    border-top-color: var(--electric);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1rem;
+    animation: ring-spin 2s linear infinite;
+  }
+  @keyframes ring-spin { to { transform: rotate(360deg); } }
+
+  /* ============================================================
+     MODAL
+     ============================================================ */
+  .modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    animation: fadeIn .15s;
+  }
+  .modal-mask.closing { animation: fadeOut .15s; }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+  .modal-box {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 24px;
+    min-width: 340px;
+    max-width: 480px;
+    width: 92%;
+    animation: slideUp .22s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-box h4 { font-size: 1.05rem; margin-bottom: 14px; font-weight: 700; }
+  .modal-box .field { margin-bottom: 10px; }
+  .modal-box .field label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+  .modal-box .field input, .modal-box .field select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-ui);
+    font-size: .9rem;
+  }
+  .modal-box .field input:focus, .modal-box .field select:focus { border-color: var(--electric); outline: none; box-shadow: 0 0 0 3px var(--electric-glow); }
+  .modal-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* ============================================================
+     TOAST
+     ============================================================ */
+  .toasts {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
   .toast {
-    position: fixed; right: 18px; bottom: 18px;
-    background: #222; color: white; padding: 10px 14px;
-    border-radius: 4px; opacity: 0; transition: opacity .3s;
-    z-index: 999; font-size: 13px; max-width: 360px;
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: .8rem;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn .3s ease;
+    max-width: 360px;
   }
-  .toast.show { opacity: 0.95; }
-  .grid-piles {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+  .toast.err { background: var(--err); }
+  @keyframes toastIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ============================================================
+     EMPTY STATES
+     ============================================================ */
+  .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+  .empty .empty-icon { font-size: 2.2rem; margin-bottom: 6px; }
+  .empty p { font-size: .85rem; }
+
+  /* ============================================================
+     AUTO-REFRESH INDICATOR
+     ============================================================ */
+  .refresh-indicator { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; color: var(--muted); font-weight: 400; }
+  .refresh-indicator .ri-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  .refresh-indicator .ri-dot.poke { animation: live-pulse .6s ease; }
+
+  /* ============================================================
+     UTILITY
+     ============================================================ */
+  .hidden     { display: none !important; }
+  .muted      { color: var(--muted); font-size: .78rem; }
+  .mono       { font-family: var(--font-mono); }
+  .mt-1       { margin-top: 6px; }
+  .mb-1       { margin-bottom: 6px; }
+  .mb-2       { margin-bottom: 10px; }
+  .gap-1      { gap: 8px; }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width: 720px) {
+    .app-header { padding: 0 14px; }
+    .app-header .brand { font-size: .85rem; }
+    .app-main  { padding: 12px 10px 28px; gap: 14px; }
+    .card-body { padding: 12px 14px; }
+    .card-head { padding: 10px 14px; }
+    .stat-row  { grid-template-columns: repeat(2, 1fr); }
+    .pile-grid { grid-template-columns: 1fr; }
+    .form-row  { flex-direction: column; }
+    .form-row > .fg { min-width: 100%; }
+    .modal-box { min-width: unset; width: 94%; padding: 18px; }
   }
-  .pile {
-    border: 1px solid var(--line); border-radius: 6px; padding: 10px;
-    background: #fbfdff;
-  }
-  .pile h3 { margin: 0 0 6px 0; font-size: 14px; }
-  .pile .meta { font-size: 12px; color: var(--muted); }
-  .pile .progress { height: 8px; background: #eaeef4; border-radius: 4px; margin-top: 6px; overflow: hidden; }
-  .pile .progress > div { background: var(--accent); height: 100%; transition: width .3s; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>智能充电桩调度计费系统</h1>
-  <div class="who" id="who">未登录</div>
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="app-header" role="banner">
+  <div class="brand">
+    <span class="bolt" aria-hidden="true">⚡</span>
+    <span>充电桩智能调度系统</span>
+  </div>
+  <div class="user-slot" id="header-slot">
+    <span id="header-label">未登录</span>
+    <button class="btn-logout hidden" id="btn-logout" onclick="doLogout()" aria-label="退出登录">退出</button>
+  </div>
 </header>
 
-<main>
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+<main class="app-main" id="app-main">
 
-  <!-- 登录 -->
-  <section id="sec-login">
-    <h2>登录</h2>
-    <div class="body row">
-      <div>
-        <label>用户名</label>
-        <input id="login-user" placeholder="alice / admin">
-      </div>
-      <div>
-        <label>密码</label>
-        <input id="login-pwd" type="password" placeholder="密码 = 用户名">
-      </div>
-      <button onclick="doLogin()">登录</button>
-      <span class="muted">测试账号：alice / bob / carol / dave / admin</span>
+  <!-- ── LOGIN ── -->
+  <section class="login-card" id="sec-login" aria-labelledby="login-title">
+    <div class="login-icon" aria-hidden="true">🔌</div>
+    <h2 id="login-title">欢迎使用充电桩调度系统</h2>
+    <p class="sub">请使用测试账号登录</p>
+    <div class="field">
+      <label for="login-user">用户名</label>
+      <input id="login-user" placeholder="alice / admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="login-pwd">密码</label>
+      <input id="login-pwd" type="password" placeholder="密码与用户名相同" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">登 录</button>
+    <div class="accounts">
+      测试账号：
+      <span>admin</span><span>alice</span><span>bob</span><span>carol</span><span>dave</span>
     </div>
   </section>
 
-  <!-- 用户：提交请求 -->
-  <section class="user-only hidden" id="sec-submit">
-    <h2>UC_01 提交充电请求</h2>
-    <div class="body row">
-      <div>
-        <label>车辆</label>
-        <select id="sub-vehicle"></select>
-      </div>
-      <div>
-        <label>充电模式</label>
-        <select id="sub-mode">
-          <option value="fast">快充 (30 kW)</option>
-          <option value="slow">慢充 (7 kW)</option>
-        </select>
-      </div>
-      <div>
-        <label>目标电量 (kWh)</label>
-        <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
-      </div>
-      <div>
-        <label>入场凭证</label>
-        <input id="sub-token" value="ENTRY-TOKEN-DEMO">
-      </div>
-      <button onclick="submitRequest()">提交</button>
-    </div>
-  </section>
+  <!-- ═══════════════════════════════════════════
+       USER PANEL
+       ═══════════════════════════════════════════ -->
+  <div class="hidden" id="user-panel" role="tabpanel">
 
-  <!-- 用户：我的请求 -->
-  <section class="user-only hidden" id="sec-myreq">
-    <h2>我的充电请求（UC_02 / UC_03 / UC_04 / UC_05）</h2>
-    <div class="body">
-      <div style="margin-bottom:8px"><button class="alt" onclick="refreshMyRequests()">刷新</button></div>
-      <table>
-        <thead>
-          <tr>
-            <th>排队号</th><th>状态</th><th>模式</th><th>目标 kWh</th>
-            <th>等待位置</th><th>预计等待(分钟)</th><th>分配桩 / 桩内位</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="tb-myreq"></tbody>
-      </table>
-    </div>
-  </section>
+    <!-- Dashboard: user status overview -->
+    <div class="stat-row" id="user-stats"></div>
 
-  <!-- 用户：账单 -->
-  <section class="user-only hidden" id="sec-bills">
-    <h2>UC_07 我的账单</h2>
-    <div class="body">
-      <div style="margin-bottom:8px"><button class="alt" onclick="refreshMyBills()">刷新</button></div>
-      <table>
-        <thead>
-          <tr>
-            <th>账单号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
-            <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="tb-bills"></tbody>
-      </table>
-    </div>
-  </section>
+    <!-- UC_01  Submit -->
+    <section class="card" aria-labelledby="uc01-title">
+      <div class="card-head"><h3 id="uc01-title">📝 提交充电请求 · UC_01</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="fg" style="max-width:200px">
+            <label for="sub-vehicle">车辆</label>
+            <select id="sub-vehicle"></select>
+          </div>
+          <div class="fg" style="max-width:150px">
+            <label for="sub-mode">充电模式</label>
+            <select id="sub-mode">
+              <option value="fast">快充 30kW</option>
+              <option value="slow">慢充 7kW</option>
+            </select>
+          </div>
+          <div class="fg" style="max-width:140px">
+            <label for="sub-target">目标电量 kWh</label>
+            <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
+          </div>
+          <div class="fg" style="max-width:180px">
+            <label for="sub-token">入场凭证</label>
+            <input id="sub-token" value="ENTRY-TOKEN-DEMO">
+          </div>
+          <button class="btn btn-pri" onclick="submitRequest()" style="align-self:flex-end">提交请求</button>
+        </div>
+      </div>
+    </section>
 
-  <!-- 用户：上报异常 -->
-  <section class="user-only hidden" id="sec-report">
-    <h2>UC_06 上报设备异常</h2>
-    <div class="body row">
-      <div>
-        <label>充电桩</label>
-        <select id="rep-pile"></select>
+    <!-- UC_02–05  My Requests -->
+    <section class="card" aria-labelledby="myreq-title">
+      <div class="card-head">
+        <h3 id="myreq-title">📋 我的充电请求 · UC_02 ~ 05</h3>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="refresh-indicator"><span class="ri-dot" id="user-ri-dot"></span><span id="user-ri-label">5s 后刷新</span></span>
+          <button class="btn btn-ghost btn-sm" onclick="refreshMyRequests()" aria-label="刷新请求列表">🔄</button>
+        </div>
       </div>
-      <div style="flex:1; min-width:240px">
-        <label>问题描述</label>
-        <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+      <div class="card-body flat">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>排队号</th><th>请求编号</th><th>状态</th><th>模式</th>
+                <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tb-myreq"></tbody>
+          </table>
+        </div>
       </div>
-      <button class="alt" onclick="reportAbnormal()">提交上报</button>
-    </div>
-  </section>
+    </section>
 
-  <!-- 管理员：桩状态 -->
-  <section class="admin-only hidden" id="sec-piles">
-    <h2>UC_08 充电桩状态</h2>
-    <div class="body">
-      <div style="margin-bottom:8px">
-        <button class="alt" onclick="refreshPiles()">刷新</button>
-        <span class="muted" id="queue-summary"></span>
+    <!-- UC_07  My Bills -->
+    <section class="card" aria-labelledby="bills-title">
+      <div class="card-head">
+        <h3 id="bills-title">💰 我的账单 · UC_07</h3>
+        <button class="btn btn-ghost btn-sm" onclick="refreshMyBills()" aria-label="刷新账单">🔄</button>
       </div>
-      <div class="grid-piles" id="pile-grid"></div>
-    </div>
-  </section>
+      <div class="card-body flat">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>账单编号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
+                <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tb-bills"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
-  <!-- 管理员：故障管理 -->
-  <section class="admin-only hidden" id="sec-fault">
-    <h2>UC_09 / UC_10 故障管理</h2>
-    <div class="body row">
-      <div>
-        <label>充电桩</label>
-        <select id="flt-pile"></select>
+    <!-- UC_06  Report Abnormal -->
+    <section class="card" aria-labelledby="uc06-title">
+      <div class="card-head"><h3 id="uc06-title">⚠️ 上报设备异常 · UC_06</h3></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="fg" style="max-width:220px">
+            <label for="rep-pile">充电桩</label>
+            <select id="rep-pile"></select>
+          </div>
+          <div class="fg" style="flex:2;min-width:220px">
+            <label for="rep-desc">问题描述</label>
+            <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+          </div>
+          <button class="btn btn-out" onclick="reportAbnormal()" style="align-self:flex-end">提交上报</button>
+        </div>
       </div>
-      <div>
-        <label>故障类型</label>
-        <input id="flt-type" value="供电故障">
-      </div>
-      <button class="danger" onclick="confirmFault()">确认故障</button>
-      <button class="alt" onclick="resumePile()">恢复桩</button>
-    </div>
-    <div class="body">
-      <h3 style="margin:6px 0; font-size:13px;">未处理的用户异常上报</h3>
-      <table>
-        <thead><tr><th>ID</th><th>桩</th><th>用户</th><th>描述</th><th>时间</th><th>操作</th></tr></thead>
-        <tbody id="tb-reports"></tbody>
-      </table>
-    </div>
-  </section>
+    </section>
+  </div>
 
-  <!-- 管理员：运营报表 -->
-  <section class="admin-only hidden" id="sec-report-ops">
-    <h2>UC_11 运营报表</h2>
-    <div class="body row">
-      <div>
-        <label>开始</label><input id="rep-from" type="date">
+  <!-- ═══════════════════════════════════════════
+       ADMIN PANEL
+       ═══════════════════════════════════════════ -->
+  <div class="hidden" id="admin-panel" role="tabpanel">
+
+    <!-- Dashboard metrics -->
+    <div class="stat-row" id="admin-stats"></div>
+
+    <!-- UC_08  Pile Status -->
+    <section class="card" aria-labelledby="uc08-title">
+      <div class="card-head">
+        <h3 id="uc08-title">🔋 充电桩实时状态 · UC_08</h3>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="refresh-indicator"><span class="ri-dot" id="admin-ri-dot"></span><span id="admin-ri-label">5s 后刷新</span></span>
+          <button class="btn btn-ghost btn-sm" onclick="refreshPiles()" aria-label="刷新桩状态">🔄</button>
+        </div>
       </div>
-      <div>
-        <label>结束</label><input id="rep-to" type="date">
+      <div class="card-body">
+        <!-- Waiting queue summary -->
+        <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap" id="queue-summary"></div>
+        <div class="pile-grid" id="pile-grid"></div>
       </div>
-      <button class="alt" onclick="refreshReport()">查询</button>
+    </section>
+
+    <!-- UC_09/10  Fault + Reports  (two-column) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="admin-cols">
+      <section class="card" aria-labelledby="fault-title">
+        <div class="card-head"><h3 id="fault-title">🔧 故障管理 · UC_09 / 10</h3></div>
+        <div class="card-body">
+          <div class="form-row mb-1">
+            <div class="fg" style="max-width:200px">
+              <label for="flt-pile">充电桩</label>
+              <select id="flt-pile"></select>
+            </div>
+            <div class="fg" style="max-width:160px">
+              <label for="flt-type">故障类型</label>
+              <input id="flt-type" value="供电故障">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-danger" onclick="confirmFault()">确认故障</button>
+            <button class="btn btn-out" onclick="resumePile()">恢复桩</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="reports-title">
+        <div class="card-head">
+          <h3 id="reports-title">📢 未处理异常上报</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadAbnormalReports()" aria-label="刷新异常上报">🔄</button>
+        </div>
+        <div class="card-body flat">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>ID</th><th>桩</th><th>用户</th><th>描述</th><th>时间</th><th>操作</th></tr></thead>
+              <tbody id="tb-reports"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="body">
-      <pre class="json" id="report-out">点击"查询"。</pre>
-    </div>
-  </section>
+
+    <!-- UC_11  Ops Report -->
+    <section class="card" aria-labelledby="uc11-title">
+      <div class="card-head"><h3 id="uc11-title">📊 运营报表 · UC_11</h3></div>
+      <div class="card-body">
+        <div class="form-row mb-2">
+          <div class="fg" style="max-width:170px">
+            <label for="rep-from">开始日期</label>
+            <input id="rep-from" type="date">
+          </div>
+          <div class="fg" style="max-width:170px">
+            <label for="rep-to">结束日期</label>
+            <input id="rep-to" type="date">
+          </div>
+          <button class="btn btn-pri" onclick="refreshReport()" style="align-self:flex-end">查询报表</button>
+        </div>
+        <div id="report-visual" class="mb-2"></div>
+        <pre id="report-out" style="background:#0f172a;color:#94a3b8;padding:14px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.72rem;overflow:auto;max-height:260px">点击"查询报表"查看运营数据与可视化。</pre>
+      </div>
+    </section>
+  </div>
 
 </main>
 
-<div class="toast" id="toast"></div>
+<!-- ============================================================
+     MODAL
+     ============================================================ -->
+<div class="modal-mask hidden" id="modal-mask" role="dialog" aria-modal="true" aria-label="对话框">
+  <div class="modal-box" id="modal-box"></div>
+</div>
 
+<!-- ============================================================
+     TOAST CONTAINER
+     ============================================================ -->
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
 <script>
-const API = "";  // 同源
-let TOKEN = null;
-let USER = null;
-let VEHICLES = [];
-let PILES_CACHE = [];
+"use strict";
 
+// ── State ──────────────────────────────────────────────────────
+const API = "";
+let TOKEN  = null;
+let USER   = null;
+let VEHICLES = [];
+let PILES   = [];
+const TICK  = 5;   // seconds
+let _tickTimer = null;
+let _countdown  = null;
+
+// ── Toast ──────────────────────────────────────────────────────
 function toast(msg, ok = true) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.style.background = ok ? "#1f4e79" : "#b3261e";
-  t.classList.add("show");
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove("show"), 2400);
+  const el = document.createElement("div");
+  el.className = "toast" + (ok ? "" : " err");
+  el.textContent = msg;
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 2200);
+  setTimeout(() => el.remove(), 2600);
 }
 
+// ── API helper ─────────────────────────────────────────────────
 async function api(path, opts = {}) {
-  opts.headers = Object.assign({"Content-Type": "application/json"}, opts.headers || {});
+  opts.headers = Object.assign({"Content-Type":"application/json"}, opts.headers||{});
   if (TOKEN) opts.headers["Authorization"] = "Bearer " + TOKEN;
   const r = await fetch(API + path, opts);
   let body = null;
-  try { body = await r.json(); } catch { /* nothing */ }
-  if (!r.ok) {
-    throw new Error((body && (body.detail || body.message)) || r.statusText);
-  }
+  try { body = await r.json(); } catch{/*no body*/}
+  if (!r.ok) throw new Error((body&&(body.detail||body.message))||r.statusText);
   return body;
 }
 
-async function doLogin() {
-  const username = document.getElementById("login-user").value.trim();
-  const password = document.getElementById("login-pwd").value || username;
-  try {
-    const r = await api("/api/login", { method: "POST", body: JSON.stringify({username, password}) });
-    TOKEN = r.token;
-    USER = r;
-    document.getElementById("who").textContent = `${r.username}${r.is_admin ? " (管理员)" : ""}`;
-    document.getElementById("sec-login").classList.add("hidden");
-    if (r.is_admin) {
-      document.querySelectorAll(".admin-only").forEach(s => s.classList.remove("hidden"));
-      await loadPilesIntoSelect();
-      await refreshPiles();
-      await loadAbnormalReports();
-      const today = new Date().toISOString().slice(0, 10);
-      const weekAgo = new Date(Date.now() - 7*86400000).toISOString().slice(0, 10);
-      document.getElementById("rep-from").value = weekAgo;
-      document.getElementById("rep-to").value = today;
-    } else {
-      document.querySelectorAll(".user-only").forEach(s => s.classList.remove("hidden"));
-      const me = await api("/api/me");
-      VEHICLES = me.vehicles;
-      const sel = document.getElementById("sub-vehicle");
-      sel.innerHTML = VEHICLES.map(v => `<option value="${v.id}">${v.license_plate}</option>`).join("");
-      await loadPilesIntoSelect();  // 不一定能拿到（普通用户没接口），略
-      await refreshMyRequests();
-      await refreshMyBills();
-    }
-    toast("登录成功");
-  } catch (e) { toast("登录失败：" + e.message, false); }
+// ── Auto-refresh ───────────────────────────────────────────────
+function startTick(fn) {
+  stopTick();
+  _tickTimer = setInterval(fn, TICK * 1000);
+  let rem = TICK;
+  const prefix = USER && USER.is_admin ? "admin" : "user";
+  const dot   = document.getElementById(prefix + "-ri-dot");
+  const label = document.getElementById(prefix + "-ri-label");
+  const tickFn = () => {
+    rem--;
+    if (rem <= 0) { rem = TICK; if (dot) { dot.classList.remove("poke"); void dot.offsetWidth; dot.classList.add("poke"); } }
+    if (label) label.textContent = rem + "s 后刷新";
+  };
+  tickFn();
+  _countdown = setInterval(tickFn, 1000);
+}
+function stopTick() {
+  if (_tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
+  if (_countdown) { clearInterval(_countdown); _countdown = null; }
 }
 
-async function loadPilesIntoSelect() {
+// ── Login / Logout ─────────────────────────────────────────────
+async function doLogin() {
+  const u = document.getElementById("login-user").value.trim();
+  const p = document.getElementById("login-pwd").value || u;
+  if (!u) { toast("请输入用户名", false); return; }
   try {
-    // 管理员才有这个接口；普通用户略
+    const r = await api("/api/login", {method:"POST", body: JSON.stringify({username:u, password:p})});
+    TOKEN = r.token; USER = r;
+    document.getElementById("header-label").innerHTML =
+      `👤 ${r.username}${r.is_admin ? ' <span class="role-tag">管理员</span>' : ''}`;
+    document.getElementById("btn-logout").classList.remove("hidden");
+    document.getElementById("sec-login").classList.add("hidden");
+
+    if (r.is_admin) {
+      document.getElementById("admin-panel").classList.remove("hidden");
+      document.getElementById("user-panel").classList.add("hidden");
+      await loadPileSelects();
+      await refreshPiles();
+      await loadAbnormalReports();
+      const now = new Date();
+      document.getElementById("rep-from").value = new Date(now-7*86400000).toISOString().slice(0,10);
+      document.getElementById("rep-to").value   = now.toISOString().slice(0,10);
+      startTick(() => { refreshPiles().catch(()=>{}); });
+    } else {
+      document.getElementById("user-panel").classList.remove("hidden");
+      document.getElementById("admin-panel").classList.add("hidden");
+      const me = await api("/api/me");
+      VEHICLES = me.vehicles;
+      document.getElementById("sub-vehicle").innerHTML =
+        VEHICLES.map(v => `<option value="${v.id}">${v.license_plate}</option>`).join("");
+      await loadPileSelects();
+      await refreshMyRequests();
+      await refreshMyBills();
+      startTick(() => { refreshMyRequests().catch(()=>{}); refreshMyBills().catch(()=>{}); });
+    }
+    toast("登录成功");
+  } catch(e) { toast("登录失败：" + e.message, false); }
+}
+
+function doLogout() {
+  TOKEN = null; USER = null; VEHICLES = []; PILES = [];
+  stopTick();
+  document.getElementById("header-label").textContent = "未登录";
+  document.getElementById("btn-logout").classList.add("hidden");
+  document.getElementById("sec-login").classList.remove("hidden");
+  document.getElementById("user-panel").classList.add("hidden");
+  document.getElementById("admin-panel").classList.add("hidden");
+  toast("已退出登录");
+}
+
+// ── Pile selects ───────────────────────────────────────────────
+async function loadPileSelects() {
+  try {
     const r = await api("/api/admin/piles");
-    PILES_CACHE = r.piles;
-    const opts = r.piles.map(p => `<option value="${p.pileId}">${p.pileCode} (${p.mode === "fast" ? "快充" : "慢充"})</option>`).join("");
-    ["rep-pile", "flt-pile"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = opts;
-    });
+    PILES = r.piles;
+    const opts = r.piles.map(p =>
+      `<option value="${p.pileId}">${p.pileCode} (${p.mode==="fast"?"快充":"慢充"})</option>`).join("");
+    ["rep-pile","flt-pile"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
   } catch {
-    // 普通用户：尝试只用本地猜测的桩列表
-    const guess = ["F1","F2","S1","S2","S3"].map((c, i) => `<option value="${i+1}">${c}</option>`).join("");
-    const el = document.getElementById("rep-pile");
-    if (el) el.innerHTML = guess;
+    const guess = ["F1","F2","T1","T2","T3"].map((c,i) => `<option value="${i+1}">${c}</option>`).join("");
+    const el = document.getElementById("rep-pile"); if(el) el.innerHTML = guess;
   }
 }
 
+// ── Badge helpers ──────────────────────────────────────────────
+const STATUS_MAP = {
+  waiting:["badge-info","排队中"], dispatched:["badge-warning","已叫号"], queuing_pile:["badge-info","桩排队"],
+  charging:["badge-success","⚡ 充电中"], completed:["badge-success","已完成"],
+  cancelled:["badge-danger","已取消"], fault_interrupted:["badge-danger","故障中断"]
+};
+function statBadge(s) { const [c,l]=STATUS_MAP[s]||["badge-neutral",s]; return `<span class="badge ${c}">${l}</span>`; }
+function billBadge(s) { return s==="paid"?'<span class="badge badge-success">已支付</span>':'<span class="badge badge-warning">待支付</span>'; }
+
+// ═══════════════════════════════════════════
+// USER: Dashboard stats
+// ═══════════════════════════════════════════
+async function updateUserStats(requests, bills) {
+  const active = requests.find(r => ["waiting","dispatched","queuing_pile","charging"].includes(r.status));
+  let statusLabel = "无活跃请求", statusCls = "", waitPos = "—", estWait = "—";
+  if (active) {
+    const [,lbl] = STATUS_MAP[active.status] || ["",""];
+    statusLabel = lbl;
+    statusCls = active.status === "charging" ? "ok" : (active.status === "dispatched" ? "warn" : "");
+    waitPos = active.waitingPosition != null ? String(active.waitingPosition) : "—";
+    estWait = active.estimatedWaitMinutes != null ? active.estimatedWaitMinutes + " min" : "—";
+  }
+  const totalBills = bills.length;
+  const totalSpent = bills.reduce((s,b) => s + (b.total_amount||0), 0);
+  const totalKwh   = bills.reduce((s,b) => s + (b.charged_kwh||0), 0);
+  const pending    = bills.filter(b => b.status === "pending").length;
+
+  document.getElementById("user-stats").innerHTML = `
+    <div class="stat-card ${statusCls}"><div class="stat-label">活跃请求状态</div><div class="stat-value" style="font-size:1.2rem">${statusLabel}</div><div class="stat-sub">排队位置 ${waitPos} · 预计等待 ${estWait}</div></div>
+    <div class="stat-card"><div class="stat-label">累计充电次数</div><div class="stat-value">${totalBills}</div><div class="stat-sub">共 ${totalKwh.toFixed(1)} kWh</div></div>
+    <div class="stat-card"><div class="stat-label">累计消费</div><div class="stat-value">¥${totalSpent.toFixed(2)}</div><div class="stat-sub">待支付 ${pending} 笔</div></div>
+  `;
+}
+
+// ── UC_01 Submit ───────────────────────────────────────────────
 async function submitRequest() {
-  const vehicleId = parseInt(document.getElementById("sub-vehicle").value);
+  const vehicleId = +document.getElementById("sub-vehicle").value;
   const mode = document.getElementById("sub-mode").value;
   const targetAmount = parseFloat(document.getElementById("sub-target").value);
-  const entryToken = document.getElementById("sub-token").value;
+  const entryToken = document.getElementById("sub-token").value.trim();
+  if (!targetAmount||targetAmount<=0) { toast("请输入有效的目标电量",false); return; }
   try {
-    const r = await api("/api/requests", {
-      method: "POST",
-      body: JSON.stringify({vehicleId, mode, targetAmount, entryToken})
-    });
+    const r = await api("/api/requests", {method:"POST", body:JSON.stringify({vehicleId,mode,targetAmount,entryToken})});
     toast("已受理：" + r.queueInfo.queueNumber);
     await refreshMyRequests();
-  } catch (e) { toast("提交失败：" + e.message, false); }
+  } catch(e) { toast("提交失败："+e.message,false); }
 }
 
-function statusBadge(s) {
-  const map = {
-    waiting: ["b-info", "排队中"],
-    dispatched: ["b-warn", "已叫号(待确认)"],
-    queuing_pile: ["b-info", "桩排队中"],
-    charging: ["b-ok", "充电中"],
-    completed: ["b-ok", "已完成"],
-    cancelled: ["b-err", "已取消"],
-    fault_interrupted: ["b-err", "故障中断"],
-  };
-  const [cls, label] = map[s] || ["b-info", s];
-  return `<span class="badge ${cls}">${label}</span>`;
-}
-
+// ── UC_02–05 My Requests ──────────────────────────────────────
 async function refreshMyRequests() {
   const rows = await api("/api/me/requests");
   const tb = document.getElementById("tb-myreq");
-  tb.innerHTML = rows.map(r => {
-    const actions = [];
-    if (["waiting", "dispatched", "queuing_pile"].includes(r.status)) {
-      actions.push(`<button onclick="cancelReq(${r.requestId})" class="danger">取消</button>`);
-    }
-    if (["waiting", "dispatched", "queuing_pile"].includes(r.status)) {
-      actions.push(`<button class="alt" onclick="modifyReq(${r.requestId})">改电量</button>`);
-    }
-    if (r.status === "dispatched") {
-      actions.push(`<button onclick="confirmReq(${r.requestId})">确认入场</button>`);
-    }
-    if (r.status === "completed" || r.status === "fault_interrupted") {
-      actions.push(`<button class="alt" onclick="viewBill(${r.requestId})">查账单</button>`);
-    }
-    return `<tr>
-      <td>${r.queueNumber}</td>
-      <td>${statusBadge(r.status)}</td>
-      <td>${r.mode === "fast" ? "快充" : "慢充"}</td>
-      <td>${(r.estimatedWaitMinutes != null) ? (r.queueNumber) : ""}</td>
-      <td>${r.waitingPosition ?? "-"}</td>
-      <td>${r.estimatedWaitMinutes ?? "-"}</td>
-      <td>${r.assignedPileCode ? r.assignedPileCode + " / " + (r.pileQueuePosition ?? "-") : "-"}</td>
-      <td>${actions.join(" ")}</td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted">暂无请求</td></tr>`;
-}
-
-async function modifyReq(id) {
-  const target = prompt("新目标电量 (kWh)，空则不改:");
-  if (target == null) return;
-  const newMode = prompt("新模式 (fast/slow)，空则不改:");
-  const body = {};
-  if (target) body.newTargetAmount = parseFloat(target);
-  if (newMode) body.newMode = newMode;
-  try {
-    const r = await api(`/api/requests/${id}`, { method: "PUT", body: JSON.stringify(body) });
-    toast(r.message);
-    await refreshMyRequests();
-  } catch (e) { toast("修改失败：" + e.message, false); }
-}
-
-async function cancelReq(id) {
-  if (!confirm("确定取消？")) return;
-  try {
-    await api(`/api/requests/${id}`, { method: "DELETE" });
-    toast("已取消");
-    await refreshMyRequests();
-  } catch (e) { toast("取消失败：" + e.message, false); }
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📭</div><p>暂无充电请求</p></div></td></tr>`;
+  } else {
+    tb.innerHTML = rows.map(r => {
+      const acts = [];
+      if (r.status==="dispatched") acts.push(`<button class="btn btn-pri btn-sm" onclick="confirmReq(${r.requestId})">确认入场</button>`);
+      if (["waiting","dispatched","queuing_pile"].includes(r.status)) {
+        acts.push(`<button class="btn btn-ghost btn-sm" onclick="openModify(${r.requestId})">修改</button>`);
+        acts.push(`<button class="btn btn-danger btn-sm" onclick="cancelReq(${r.requestId})">取消</button>`);
+      }
+      if (r.status==="completed"||r.status==="fault_interrupted") acts.push(`<button class="btn btn-ghost btn-sm" onclick="viewBill(${r.requestId})">查账单</button>`);
+      return `<tr>
+        <td><strong>${r.queueNumber}</strong></td>
+        <td><code class="mono" style="font-size:.72rem;color:var(--muted)">${r.requestCode}</code></td>
+        <td>${statBadge(r.status)}</td>
+        <td>${r.mode==="fast"?"⚡快充":"🐢慢充"}</td>
+        <td>${r.waitingPosition??"—"}</td>
+        <td>${r.estimatedWaitMinutes!=null?r.estimatedWaitMinutes+" min":"—"}</td>
+        <td>${r.assignedPileCode?`<strong>${r.assignedPileCode}</strong> / 位${r.pileQueuePosition??"—"}`:"—"}</td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap">${acts.join("")}</div></td>
+      </tr>`;
+    }).join("");
+  }
+  // also refresh bills for stats
+  try { const bills = await api("/api/me/bills"); updateUserStats(rows, bills); } catch{}
 }
 
 async function confirmReq(id) {
-  try {
-    const r = await api(`/api/requests/${id}/confirm`, { method: "POST" });
-    toast("确认成功：" + r.queueInfo.assignedPileCode);
-    await refreshMyRequests();
-  } catch (e) { toast("确认失败：" + e.message, false); }
+  try { const r=await api(`/api/requests/${id}/confirm`,{method:"POST"}); toast("已分配至 "+r.queueInfo.assignedPileCode); await refreshMyRequests(); }
+  catch(e) { toast("确认失败："+e.message,false); }
 }
 
-async function viewBill(reqId) {
-  try {
-    const b = await api(`/api/bills/by-request/${reqId}`);
-    alert(`账单 ${b.bill_code}\n充电: ${b.charged_kwh} kWh\n充电费: ¥${b.charging_fee}\n服务费: ¥${b.service_fee}\n合计: ¥${b.total_amount}\n状态: ${b.status}`);
-  } catch (e) { toast("查询失败：" + e.message, false); }
+async function cancelReq(id) {
+  showConfirm("确定取消此请求？", "取消后将无法恢复。", async () => {
+    try { await api(`/api/requests/${id}`,{method:"DELETE"}); toast("已取消"); await refreshMyRequests(); }
+    catch(e) { toast("取消失败："+e.message,false); }
+  });
 }
 
+// ── Modify modal ──────────────────────────────────────────────
+function openModify(id) {
+  showModal(`
+    <h4>修改充电请求</h4>
+    <div class="field"><label>新目标电量 (kWh) — 留空不改</label><input id="mod-target" type="number" min="0.1" step="0.1" placeholder="例如 20"></div>
+    <div class="field"><label>新模式 — 留空不改（改模式将取消原请求重新排队）</label><select id="mod-mode"><option value="">不改</option><option value="fast">快充 30kW</option><option value="slow">慢充 7kW</option></select></div>
+    <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-pri" id="mod-go">确认</button></div>
+  `, () => { document.getElementById("mod-go").onclick = () => doModify(id); });
+}
+async function doModify(id) {
+  const t = document.getElementById("mod-target").value;
+  const m = document.getElementById("mod-mode").value;
+  const body = {};
+  if (t) body.newTargetAmount = parseFloat(t);
+  if (m) body.newMode = m;
+  if (!body.newTargetAmount && !body.newMode) { toast("未修改",false); closeModal(); return; }
+  try { const r = await api(`/api/requests/${id}`,{method:"PUT",body:JSON.stringify(body)}); toast(r.message); closeModal(); await refreshMyRequests(); }
+  catch(e) { toast("失败："+e.message,false); }
+}
+
+// ── UC_07 My Bills ────────────────────────────────────────────
 async function refreshMyBills() {
   const rows = await api("/api/me/bills");
   const tb = document.getElementById("tb-bills");
-  tb.innerHTML = rows.map(b => {
-    const pay = b.status === "pending"
-      ? `<button onclick="payBill(${b.id})">支付</button>`
-      : `<span class="muted">${b.pay_channel || ""}</span>`;
-    return `<tr>
-      <td>${b.bill_code}</td>
-      <td>${b.charged_kwh}</td>
-      <td>¥${b.charging_fee}</td>
-      <td>¥${b.service_fee}</td>
-      <td><strong>¥${b.total_amount}</strong></td>
-      <td>${b.status === "paid" ? '<span class="badge b-ok">已支付</span>' : '<span class="badge b-warn">待支付</span>'}</td>
-      <td>${b.created_at.replace("T", " ").slice(0, 19)}</td>
-      <td>${pay}</td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="8" class="muted">暂无账单</td></tr>`;
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">💳</div><p>暂无账单</p></div></td></tr>`;
+  } else {
+    tb.innerHTML = rows.map(b => {
+      const payBtn = b.status==="pending"
+        ? `<button class="btn btn-pri btn-sm" onclick="openPay(${b.id})">支付</button>`
+        : `<span class="muted">${b.pay_channel||"—"}</span>`;
+      return `<tr>
+        <td><code class="mono" style="font-size:.7rem">${b.bill_code}</code></td>
+        <td class="mono">${b.charged_kwh}</td>
+        <td class="mono">¥${b.charging_fee}</td>
+        <td class="mono">¥${b.service_fee}</td>
+        <td><strong class="mono" style="color:var(--electric-dim)">¥${b.total_amount}</strong></td>
+        <td>${billBadge(b.status)}</td>
+        <td style="font-size:.75rem">${b.created_at.replace("T"," ").slice(0,19)}</td>
+        <td>${payBtn}</td>
+      </tr>`;
+    }).join("");
+  }
+  try { const reqs = await api("/api/me/requests"); updateUserStats(reqs, rows); } catch{}
 }
 
-async function payBill(id) {
-  const ch = prompt("支付方式（alipay / wechat / card）:", "alipay");
-  if (!ch) return;
+// ── Pay modal ──────────────────────────────────────────────────
+function openPay(id) {
+  showModal(`
+    <h4>支付账单</h4>
+    <div class="field"><label for="pay-ch">支付方式</label><select id="pay-ch"><option value="alipay">支付宝</option><option value="wechat">微信支付</option><option value="card">银行卡</option></select></div>
+    <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-pri" id="pay-go">确认支付</button></div>
+  `, () => { document.getElementById("pay-go").onclick = () => doPay(id); });
+}
+async function doPay(id) {
+  const ch = document.getElementById("pay-ch").value;
+  try { await api(`/api/bills/${id}/pay`,{method:"POST",body:JSON.stringify({payChannel:ch})}); toast("支付成功"); closeModal(); await refreshMyBills(); }
+  catch(e) { toast("支付失败："+e.message,false); }
+}
+
+// ── View bill modal ────────────────────────────────────────────
+async function viewBill(reqId) {
   try {
-    await api(`/api/bills/${id}/pay`, { method: "POST", body: JSON.stringify({payChannel: ch}) });
-    toast("支付成功");
-    await refreshMyBills();
-  } catch (e) { toast("支付失败：" + e.message, false); }
+    const b = await api(`/api/bills/by-request/${reqId}`);
+    showModal(`
+      <h4>账单详情</h4>
+      <table style="width:100%;font-size:.82rem">
+        <tr><td style="color:var(--muted);width:80px">编号</td><td><code class="mono">${b.bill_code}</code></td></tr>
+        <tr><td style="color:var(--muted)">充电量</td><td><strong class="mono">${b.charged_kwh} kWh</strong></td></tr>
+        <tr><td style="color:var(--muted)">充电费</td><td class="mono">¥${b.charging_fee}</td></tr>
+        <tr><td style="color:var(--muted)">服务费</td><td class="mono">¥${b.service_fee}</td></tr>
+        <tr><td style="color:var(--muted)">合计</td><td><strong class="mono" style="font-size:1.1rem;color:var(--electric-dim)">¥${b.total_amount}</strong></td></tr>
+        <tr><td style="color:var(--muted)">状态</td><td>${billBadge(b.status)}</td></tr>
+        <tr><td style="color:var(--muted)">生成时间</td><td>${b.created_at.replace("T"," ").slice(0,19)}</td></tr>
+        ${b.paid_at?`<tr><td style="color:var(--muted)">支付时间</td><td>${b.paid_at.replace("T"," ").slice(0,19)}</td></tr>`:""}
+      </table>
+      <div class="modal-acts">
+        <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+        ${b.status==="pending"?`<button class="btn btn-pri" onclick="closeModal();openPay(${b.id})">去支付</button>`:""}
+      </div>`);
+  } catch(e) { toast("查询失败："+e.message,false); }
 }
 
+// ── UC_06 Report Abnormal ─────────────────────────────────────
 async function reportAbnormal() {
-  const pileId = parseInt(document.getElementById("rep-pile").value);
-  const description = document.getElementById("rep-desc").value;
-  if (!description) { toast("请填写描述", false); return; }
-  try {
-    await api("/api/reports", { method: "POST", body: JSON.stringify({pileId, description}) });
-    toast("上报成功");
-  } catch (e) { toast("上报失败：" + e.message, false); }
+  const pileId = +document.getElementById("rep-pile").value;
+  const desc = document.getElementById("rep-desc").value.trim();
+  if (!desc) { toast("请填写问题描述",false); return; }
+  try { const r = await api("/api/reports",{method:"POST",body:JSON.stringify({pileId,description:desc})}); toast("上报成功 #"+r.reportId); document.getElementById("rep-desc").value=""; }
+  catch(e) { toast("失败："+e.message,false); }
 }
 
-/* 管理员 */
+// ═══════════════════════════════════════════
+// ADMIN: Dashboard + Piles
+// ═══════════════════════════════════════════
+function updateAdminStats(piles, wFast, wSlow, pendingReports) {
+  const total = piles.length;
+  const avail = piles.filter(p=>p.status==="available").length;
+  const charging = piles.filter(p=>p.chargingRequestCode).length;
+  const fault = piles.filter(p=>p.status==="fault").length;
+  const totalSessions = piles.reduce((s,p)=>s+(p.totalSessions||0),0);
+  const totalKwh = piles.reduce((s,p)=>s+(p.totalChargedKwh||0),0);
+  const totalRev = piles.reduce((s,p)=>s+(p.totalRevenue||0),0);
+  const availRate = total > 0 ? Math.round(avail/total*100) : 0;
+
+  document.getElementById("admin-stats").innerHTML = `
+    <div class="stat-card ok"><div class="stat-label">可用率</div><div class="stat-value">${availRate}%</div><div class="stat-sub">${avail}/${total} 空闲</div></div>
+    <div class="stat-card"><div class="stat-label">充电中</div><div class="stat-value">${charging}</div><div class="stat-sub">快充等候 ${wFast} · 慢充等候 ${wSlow}</div></div>
+    <div class="stat-card ${fault>0?'err':'ok'}"><div class="stat-label">故障桩</div><div class="stat-value">${fault}</div><div class="stat-sub">待处理上报 ${pendingReports}</div></div>
+    <div class="stat-card"><div class="stat-label">累计充电量</div><div class="stat-value">${totalKwh.toFixed(0)}<small style="font-size:.9rem"> kWh</small></div><div class="stat-sub">${totalSessions} 次充电</div></div>
+    <div class="stat-card"><div class="stat-label">累计收入</div><div class="stat-value">¥${totalRev.toFixed(2)}</div><div class="stat-sub">充电费 + 服务费</div></div>
+  `;
+}
 
 async function refreshPiles() {
   const r = await api("/api/admin/piles");
-  PILES_CACHE = r.piles;
-  document.getElementById("queue-summary").textContent =
-    `等候区: 快充 ${r.waitingQueueFast} | 慢充 ${r.waitingQueueSlow} | 未处理上报 ${r.pendingAbnormalReports}`;
+  PILES = r.piles;
+  updateAdminStats(r.piles, r.waitingQueueFast, r.waitingQueueSlow, r.pendingAbnormalReports);
+
+  // queue summary
+  document.getElementById("queue-summary").innerHTML = `
+    <span style="font-size:.82rem"><strong style="color:var(--electric-dim)">快充等候区:</strong> <span class="mono">${r.waitingQueueFast}</span> 人</span>
+    <span style="font-size:.82rem"><strong style="color:var(--electric-dim)">慢充等候区:</strong> <span class="mono">${r.waitingQueueSlow}</span> 人</span>
+    <span style="font-size:.82rem"><strong style="color:var(--err)">待处理上报:</strong> <span class="mono">${r.pendingAbnormalReports}</span></span>
+  `;
+
+  // pile grid
   const grid = document.getElementById("pile-grid");
   grid.innerHTML = r.piles.map(p => {
-    const stCls = p.status === "fault" ? "b-err" : (p.status === "occupied" ? "b-warn" : "b-ok");
-    const stLabel = {available: "空闲", occupied: "占用", fault: "故障"}[p.status] || p.status;
-    const prog = p.chargingTargetKwh
-      ? `<div class="progress"><div style="width:${(p.chargingProgressKwh / p.chargingTargetKwh * 100).toFixed(1)}%"></div></div>
-         <div class="meta">${p.chargingRequestCode}: ${p.chargingProgressKwh?.toFixed(2)} / ${p.chargingTargetKwh} kWh</div>`
-      : `<div class="meta">无在充会话</div>`;
-    return `<div class="pile">
-      <h3>${p.pileCode} <span class="badge ${stCls}">${stLabel}</span></h3>
-      <div class="meta">${p.mode === "fast" ? "快充" : "慢充"} · ${p.powerKw} kW · 队列 ${p.queueLength}/${p.queueCapacity}</div>
+    const stMap = {available:["badge-success","空闲"], occupied:["badge-warning","占用中"], fault:["badge-danger","故障"]};
+    const [stC, stL] = stMap[p.status]||["badge-neutral",p.status];
+    const cardCls = p.status==="fault"?"fault":(p.chargingRequestCode?"":"");
+
+    let prog = "";
+    if (p.chargingTargetKwh) {
+      const pct = Math.min(100, (p.chargingProgressKwh / p.chargingTargetKwh * 100)).toFixed(1);
+      prog = `<div class="prog-bar"><div class="animated" style="width:${pct}%"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:.73rem;margin-top:2px">
+                <span><span class="live-dot"></span> ${p.chargingRequestCode}</span>
+                <span class="mono">${p.chargingProgressKwh?.toFixed(2)} / ${p.chargingTargetKwh} kWh</span>
+              </div>`;
+    } else {
+      prog = `<div class="muted mt-1">无在充会话</div>`;
+    }
+
+    return `<div class="pile-card ${cardCls}">
+      <div class="pile-top"><span class="pile-code">${p.pileCode}</span><span class="badge ${stC}">${stL}</span></div>
+      <div class="pile-mode">${p.mode==="fast"?"⚡ 快充":"🐢 慢充"} · ${p.powerKw} kW · 队列 ${p.queueLength}/${p.queueCapacity}</div>
       ${prog}
-      <div class="meta" style="margin-top:6px">累计: ${p.totalSessions} 次 · ${p.totalChargedKwh} kWh · ¥${p.totalRevenue}</div>
+      <div class="pile-foot"><span>累计 <strong>${p.totalSessions}</strong> 次</span><span><strong>${p.totalChargedKwh}</strong> kWh</span><span>¥<strong>${p.totalRevenue}</strong></span></div>
     </div>`;
   }).join("");
 }
 
+// ── Abnormal reports ──────────────────────────────────────────
 async function loadAbnormalReports() {
   const rows = await api("/api/admin/abnormal-reports?only_unack=true");
   const tb = document.getElementById("tb-reports");
-  tb.innerHTML = rows.map(r => `<tr>
-    <td>${r.id}</td>
-    <td>${r.pileCode}</td>
-    <td>${r.userId}</td>
-    <td>${r.description}</td>
-    <td>${r.reportedAt.replace("T", " ").slice(0, 19)}</td>
-    <td><button class="danger" onclick="confirmFaultFromReport(${r.pileId}, ${r.id})">确认为故障</button></td>
-  </tr>`).join("") || `<tr><td colspan="6" class="muted">无未处理上报</td></tr>`;
+  if (!rows.length) {
+    tb.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">✅</div><p>无未处理上报</p></div></td></tr>`;
+  } else {
+    tb.innerHTML = rows.map(r => `<tr>
+      <td>#${r.id}</td><td><strong>${r.pileCode}</strong></td><td>${r.userId}</td>
+      <td>${r.description}</td><td style="font-size:.74rem">${r.reportedAt.replace("T"," ").slice(0,19)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="confirmFaultFromReport(${r.pileId},${r.id})">确认为故障</button></td>
+    </tr>`).join("");
+  }
 }
 
+// ── UC_09 Confirm Fault ───────────────────────────────────────
 async function confirmFaultFromReport(pileId, reportId) {
-  const ft = prompt("故障类型:", "用户上报");
-  if (!ft) return;
-  try {
-    const r = await api(`/api/admin/piles/${pileId}/fault`, {
-      method: "POST",
-      body: JSON.stringify({faultType: ft, sourceReportId: reportId})
-    });
-    toast(`故障已确认，重调度 ${r.rescheduledRequests} 项`);
-    await refreshPiles();
-    await loadAbnormalReports();
-  } catch (e) { toast("失败：" + e.message, false); }
+  showPrompt("确认故障", "故障类型", "用户上报", async (ft) => {
+    try {
+      const r = await api(`/api/admin/piles/${pileId}/fault`, {method:"POST", body:JSON.stringify({faultType:ft, sourceReportId:reportId})});
+      toast(`故障已确认 · 中断 ${r.interruptedSessionId||"无"} · 重调度 ${r.rescheduledRequests} 项`);
+      await refreshPiles(); await loadAbnormalReports();
+    } catch(e) { toast("失败："+e.message,false); }
+  });
 }
 
 async function confirmFault() {
-  const pileId = parseInt(document.getElementById("flt-pile").value);
-  const faultType = document.getElementById("flt-type").value;
+  const pileId = +document.getElementById("flt-pile").value;
+  const ft = document.getElementById("flt-type").value.trim();
+  if (!ft) { toast("请输入故障类型",false); return; }
   try {
-    const r = await api(`/api/admin/piles/${pileId}/fault`, {
-      method: "POST",
-      body: JSON.stringify({faultType})
-    });
-    toast(`故障已确认，重调度 ${r.rescheduledRequests} 项`);
+    const r = await api(`/api/admin/piles/${pileId}/fault`, {method:"POST", body:JSON.stringify({faultType:ft})});
+    toast(`故障已确认 · 中断 ${r.interruptedSessionId||"无"} · 重调度 ${r.rescheduledRequests} 项`);
     await refreshPiles();
-  } catch (e) { toast("失败：" + e.message, false); }
+  } catch(e) { toast("失败："+e.message,false); }
 }
 
+// ── UC_10 Resume ──────────────────────────────────────────────
 async function resumePile() {
-  const pileId = parseInt(document.getElementById("flt-pile").value);
-  try {
-    await api(`/api/admin/piles/${pileId}/resume`, { method: "POST" });
-    toast("桩已恢复");
-    await refreshPiles();
-  } catch (e) { toast("失败：" + e.message, false); }
+  const pileId = +document.getElementById("flt-pile").value;
+  showConfirm("确定恢复此充电桩吗？", "恢复后将重新参与调度。", async () => {
+    try { await api(`/api/admin/piles/${pileId}/resume`,{method:"POST"}); toast("桩已恢复"); await refreshPiles(); }
+    catch(e) { toast("失败："+e.message,false); }
+  });
 }
 
+// ── UC_11 Ops Report + Visualization ──────────────────────────
 async function refreshReport() {
   const f = document.getElementById("rep-from").value;
   const t = document.getElementById("rep-to").value;
   const q = new URLSearchParams();
-  if (f) q.set("from", f + "T00:00:00");
-  if (t) q.set("to", t + "T23:59:59");
+  if (f) q.set("from", f+"T00:00:00");
+  if (t) q.set("to", t+"T23:59:59");
   try {
-    const r = await api("/api/admin/reports?" + q.toString());
+    const r = await api("/api/admin/reports?"+q);
     document.getElementById("report-out").textContent = JSON.stringify(r, null, 2);
-  } catch (e) { toast("查询失败：" + e.message, false); }
+
+    // CSS-only data bars for piles breakdown
+    let viz = "";
+    if (r.pilesBreakdown && r.pilesBreakdown.length) {
+      const maxKwh = Math.max(...r.pilesBreakdown.map(p => p.totalChargedKwh||0), 1);
+      const maxRev = Math.max(...r.pilesBreakdown.map(p => p.totalRevenue||0), 1);
+      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩充电量 (kWh)</div>
+              <div class="data-bar-group mb-2">`;
+      r.pilesBreakdown.forEach(p => {
+        const w = Math.round((p.totalChargedKwh||0)/maxKwh*100);
+        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill fast" style="width:${w}%"></div></div><span class="bar-val">${(p.totalChargedKwh||0).toFixed(0)}</span></div>`;
+      });
+      viz += `</div>`;
+      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩收入 (¥)</div>
+              <div class="data-bar-group">`;
+      r.pilesBreakdown.forEach(p => {
+        const w = Math.round((p.totalRevenue||0)/maxRev*100);
+        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill slow" style="width:${w}%"></div></div><span class="bar-val">¥${(p.totalRevenue||0).toFixed(2)}</span></div>`;
+      });
+      viz += `</div>`;
+    }
+    // Summary
+    viz += `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:.8rem;color:var(--ink-light)">
+      <span>总会话: <strong class="mono">${r.totalSessions}</strong></span>
+      <span>已支付: <strong class="mono" style="color:var(--ok)">${r.paidBills}</strong></span>
+      <span>待支付: <strong class="mono" style="color:var(--warn)">${r.pendingBills}</strong></span>
+      <span>故障: <strong class="mono" style="color:var(--err)">${r.faultCount}</strong></span>
+    </div>`;
+    document.getElementById("report-visual").innerHTML = viz;
+    toast("报表查询成功");
+  } catch(e) { toast("查询失败："+e.message,false); }
 }
 
-/* 定时刷新 */
-setInterval(() => {
-  if (!TOKEN) return;
-  if (USER && USER.is_admin) {
-    refreshPiles().catch(() => {});
-  } else {
-    refreshMyRequests().catch(() => {});
-    refreshMyBills().catch(() => {});
+// ═══════════════════════════════════════════
+// MODAL SYSTEM
+// ═══════════════════════════════════════════
+function showModal(html, onReady) {
+  const mask = document.getElementById("modal-mask");
+  document.getElementById("modal-box").innerHTML = html;
+  mask.classList.remove("hidden");
+  mask.setAttribute("aria-hidden","false");
+  // focus trap: focus first input/button in modal
+  setTimeout(() => {
+    const first = mask.querySelector("input, select, button");
+    if (first) first.focus();
+    if (onReady) onReady();
+  }, 60);
+}
+
+function closeModal() {
+  const mask = document.getElementById("modal-mask");
+  mask.classList.add("hidden");
+  mask.setAttribute("aria-hidden","true");
+}
+
+function showConfirm(title, msg, onOk) {
+  showModal(`
+    <h4>${title}</h4><p style="color:var(--ink-light);margin-bottom:14px">${msg}</p>
+    <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-danger" id="cfm-ok">确定</button></div>
+  `, () => { document.getElementById("cfm-ok").onclick = () => { closeModal(); onOk(); }; });
+}
+
+function showPrompt(title, label, defVal, onSubmit) {
+  showModal(`
+    <h4>${title}</h4>
+    <div class="field"><label>${label}</label><input id="prm-input" value="${defVal||""}"></div>
+    <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-pri" id="prm-go">确定</button></div>
+  `, () => {
+    const inp = document.getElementById("prm-input");
+    inp.focus(); inp.select();
+    document.getElementById("prm-go").onclick = () => { const v=inp.value.trim(); if(!v){toast("请输入",false);return;} closeModal(); onSubmit(v); };
+    inp.addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("prm-go").click(); });
+  });
+}
+
+// ── Keyboard ───────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    const mask = document.getElementById("modal-mask");
+    if (!mask.classList.contains("hidden")) closeModal();
   }
-}, 5000);
+});
+
+// click modal mask to close
+document.getElementById("modal-mask").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Enter on login fields
+document.getElementById("login-pwd").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+document.getElementById("login-user").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("login-pwd").focus(); });
 </script>
 
 </body>
