@@ -101,7 +101,7 @@ def setup_world():
         for i in range(1, SLOW_PILE_COUNT + 1):
             db.add(
                 ChargingPile(
-                    pile_code=f"T{i}",
+                    pile_code=f"S{i}",
                     mode=ChargeMode.SLOW,
                     power_kw=SLOW_PILE_POWER_KW,
                     queue_capacity=PILE_QUEUE_CAPACITY,

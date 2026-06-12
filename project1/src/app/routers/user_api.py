@@ -74,7 +74,7 @@ def _make_request_code() -> str:
 
 
 def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
-    prefix = "F" if mode == ChargeMode.FAST else "S"
+    prefix = "F" if mode == ChargeMode.FAST else "T"
     today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
     count = (
         db.query(ChargingRequest)

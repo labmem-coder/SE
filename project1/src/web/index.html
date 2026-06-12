@@ -147,9 +147,16 @@
   .app-main {
     position: relative;
     z-index: 1;
-    max-width: 1280px;
+    max-width: 1480px;
     margin: 0 auto;
-    padding: 22px 22px 44px;
+    padding: 22px 16px 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* admin / user panel internal spacing */
+  #admin-panel, #user-panel {
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -162,55 +169,100 @@
     background: var(--surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    padding: 40px 36px;
-    max-width: 420px;
-    margin: 60px auto 0;
+    padding: 36px 32px;
+    width: 520px;
+    margin: 48px auto 0;
     text-align: center;
   }
   .login-card .login-icon { font-size: 3rem; margin-bottom: 8px; }
   .login-card h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
   .login-card .sub { font-size: .85rem; color: var(--muted); margin-bottom: 22px; }
-  .login-card .field { text-align: left; margin-bottom: 12px; }
-  .login-card .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--ink-light); margin-bottom: 4px; }
-  .login-card .field input {
+
+  /* ── login role tabs ── */
+  .login-tabs {
+    display: flex;
+    gap: 0;
+    margin: 8px 0 18px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1.5px solid var(--line);
+  }
+  .login-tab-btn {
+    flex: 1;
+    padding: 9px 0;
+    font-family: var(--font-ui);
+    font-size: .88rem;
+    font-weight: 600;
+    border: none;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .login-tab-btn:first-child { border-right: 1.5px solid var(--line); }
+  .login-tab-btn.active {
+    background: var(--electric);
+    color: #fff;
+  }
+  /* ── login form fields ── */
+  .login-form { text-align: left; }
+  .login-form .field { margin-bottom: 12px; }
+  .login-form .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--ink-light); margin-bottom: 4px; }
+  .login-form .field input {
     width: 100%;
-    padding: 9px 12px;
+    padding: 9px 11px;
     border: 1.5px solid var(--line);
     border-radius: var(--radius-sm);
     font-family: var(--font-ui);
-    font-size: .95rem;
+    font-size: .92rem;
     transition: border-color .18s, box-shadow .18s;
   }
-  .login-card .field input:focus { border-color: var(--electric); outline: none; box-shadow: 0 0 0 3px var(--electric-glow); }
-  .login-card .btn-login {
+  .login-form .field input:focus { border-color: var(--electric); outline: none; box-shadow: 0 0 0 3px var(--electric-glow); }
+  .login-form .btn-login {
     width: 100%;
     padding: 10px;
-    margin-top: 6px;
+    margin-top: 4px;
     background: var(--electric-dim);
     color: #fff;
     border: none;
     border-radius: var(--radius-sm);
-    font-size: 1rem;
+    font-size: .95rem;
     font-weight: 600;
     font-family: var(--font-ui);
     cursor: pointer;
     transition: background .18s;
   }
-  .login-card .btn-login:hover { background: #1e3a8a; }
-  .login-card .accounts {
+  .login-form .btn-login:hover { background: #1e3a8a; }
+  .quick-accounts {
     margin-top: 14px;
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 6px;
     justify-content: center;
+    min-height: 36px;
+    align-items: center;
   }
-  .login-card .accounts span {
-    background: var(--bg);
+  .quick-accounts .quick-label {
+    font-size: .7rem;
     color: var(--muted);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: .72rem;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+  .quick-accounts .qa-chip {
+    background: var(--surface);
+    color: var(--ink-light);
+    border: 1px solid var(--line);
+    padding: 3px 10px;
+    border-radius: 14px;
+    font-size: .73rem;
     font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .quick-accounts .qa-chip:hover {
+    background: var(--electric-glow);
+    border-color: var(--electric);
+    color: var(--electric-dim);
   }
 
   /* ============================================================
@@ -219,7 +271,7 @@
   .stat-row {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 14px;
+    gap: 16px;
   }
   .stat-card {
     background: var(--surface);
@@ -239,6 +291,34 @@
   .stat-card .stat-label { font-size: .7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .stat-card .stat-value { font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700; color: var(--ink); }
   .stat-card .stat-sub  { font-size: .72rem; color: var(--muted); }
+
+	  /* ============================================================
+	     TWO-COLUMN USER DASHBOARD
+	     ============================================================ */
+	  .user-cols {
+	    display: grid;
+	    grid-template-columns: 1fr 1fr;
+	    gap: 14px;
+	    align-items: start;
+	  }
+	  @media (max-width: 900px) {
+	    .user-cols { grid-template-columns: 1fr; }
+	  }
+
+	  /* scrollable table wrapper */
+	  .tbl-scroll {
+	    max-height: 520px;
+	    overflow-y: auto;
+	  }
+
+	  /* inline stat inside card head */
+	  .inline-stat {
+	    font-family: var(--font-mono);
+	    font-size: .78rem;
+	    font-weight: 600;
+	    color: var(--electric-dim);
+	    white-space: nowrap;
+	  }
 
   /* ============================================================
      SECTION CARDS
@@ -260,7 +340,7 @@
     flex-wrap: wrap;
   }
   .card-head h3 { font-size: .93rem; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
-  .card-body { padding: 16px 20px; }
+  .card-body { padding: 12px 14px; }
   .card-body.flat { padding: 0; }
 
   /* ============================================================
@@ -318,9 +398,9 @@
      TABLES
      ============================================================ */
   .tbl-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .78rem; }
   thead th {
-    padding: 10px 10px;
+    padding: 8px 8px;
     text-align: left;
     font-size: .7rem;
     font-weight: 700;
@@ -331,7 +411,7 @@
     border-bottom: 2px solid var(--line);
     white-space: nowrap;
   }
-  tbody td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  tbody td { padding: 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
   tbody tr { transition: background .15s; }
   tbody tr:hover { background: #f8fafc; }
   tbody tr:last-child td { border-bottom: none; }
@@ -361,7 +441,7 @@
   .pile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 14px;
+    gap: 16px;
   }
   .pile-card {
     border: 1.5px solid var(--line);
@@ -370,7 +450,11 @@
     background: var(--surface);
     transition: all .18s;
     position: relative;
+    display: flex;
+    flex-direction: column;
   }
+  .pile-card .pile-prog   { flex: 1; min-height: 52px; display: flex; flex-direction: column; justify-content: center; }
+  .pile-card .pile-foot  { margin-top: auto; padding-top: 8px; }
   .pile-card:hover { border-color: var(--electric); box-shadow: var(--shadow-md); }
   .pile-card.fault { border-color: var(--err); background: #fff5f5; }
   .pile-card .pile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
@@ -572,19 +656,29 @@
   <section class="login-card" id="sec-login" aria-labelledby="login-title">
     <div class="login-icon" aria-hidden="true">🔌</div>
     <h2 id="login-title">欢迎使用充电桩调度系统</h2>
-    <p class="sub">请使用测试账号登录</p>
-    <div class="field">
-      <label for="login-user">用户名</label>
-      <input id="login-user" placeholder="alice / admin" autocomplete="username">
+    <p class="sub">请选择登录方式</p>
+
+    <!-- 登录角色切换按钮 -->
+    <div class="login-tabs">
+      <button class="login-tab-btn active" id="tab-admin" onclick="switchLoginRole('admin')">🔧 管理员登录</button>
+      <button class="login-tab-btn" id="tab-user" onclick="switchLoginRole('user')">👤 充电用户登录</button>
     </div>
-    <div class="field">
-      <label for="login-pwd">密码</label>
-      <input id="login-pwd" type="password" placeholder="密码与用户名相同" autocomplete="current-password">
-    </div>
-    <button class="btn-login" onclick="doLogin()">登 录</button>
-    <div class="accounts">
-      测试账号：
-      <span>admin</span><span>alice</span><span>bob</span><span>carol</span><span>dave</span>
+
+    <!-- 统一登录表单 -->
+    <div class="login-form">
+      <div class="field">
+        <label for="login-user">用户名</label>
+        <input id="login-user" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="login-pwd">密码</label>
+        <input id="login-pwd" type="password" placeholder="密码" autocomplete="current-password">
+      </div>
+      <button class="btn-login" id="btn-login-submit" onclick="doLogin()">管理员登录</button>
+      <div class="quick-accounts" id="quick-accounts">
+        <span class="quick-label">测试账号</span>
+        <span class="qa-chip" onclick="quickLogin('admin','admin')">admin</span>
+      </div>
     </div>
   </section>
 
@@ -593,109 +687,121 @@
        ═══════════════════════════════════════════ -->
   <div class="hidden" id="user-panel" role="tabpanel">
 
-    <!-- Dashboard: user status overview -->
-    <div class="stat-row" id="user-stats"></div>
+    <div class="user-cols">
 
-    <!-- UC_01  Submit -->
-    <section class="card" aria-labelledby="uc01-title">
-      <div class="card-head"><h3 id="uc01-title">📝 提交充电请求 · UC_01</h3></div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="fg" style="max-width:200px">
-            <label for="sub-vehicle">车辆</label>
-            <select id="sub-vehicle"></select>
-          </div>
-          <div class="fg" style="max-width:150px">
-            <label for="sub-mode">充电模式</label>
-            <select id="sub-mode">
-              <option value="fast">快充 30kW</option>
-              <option value="slow">慢充 7kW</option>
-            </select>
-          </div>
-          <div class="fg" style="max-width:140px">
-            <label for="sub-target">目标电量 kWh</label>
-            <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
-          </div>
-          <div class="fg" style="max-width:180px">
-            <label for="sub-token">入场凭证</label>
-            <input id="sub-token" value="ENTRY-TOKEN-DEMO">
-          </div>
-          <button class="btn btn-pri" onclick="submitRequest()" style="align-self:flex-end">提交请求</button>
-        </div>
-      </div>
-    </section>
+      <!-- ═══════════ LEFT COLUMN ═══════════ -->
+      <div style="display:flex;flex-direction:column;gap:20px">
 
-    <!-- UC_02–05  My Requests -->
-    <section class="card" aria-labelledby="myreq-title">
-      <div class="card-head">
-        <h3 id="myreq-title">📋 我的充电请求 · UC_02 ~ 05</h3>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="refresh-indicator"><span class="ri-dot" id="user-ri-dot"></span><span id="user-ri-label">5s 后刷新</span></span>
-          <button class="btn btn-ghost btn-sm" onclick="refreshMyRequests()" aria-label="刷新请求列表">🔄</button>
-        </div>
-      </div>
-      <div class="card-body flat">
-        <div class="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>排队号</th><th>请求编号</th><th>状态</th><th>模式</th>
-                <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="tb-myreq"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- UC_07  My Bills -->
-    <section class="card" aria-labelledby="bills-title">
-      <div class="card-head">
-        <h3 id="bills-title">💰 我的账单 · UC_07</h3>
-        <button class="btn btn-ghost btn-sm" onclick="refreshMyBills()" aria-label="刷新账单">🔄</button>
-      </div>
-      <div class="card-body flat">
-        <div class="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>账单编号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
-                <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="tb-bills"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- UC_06  Report Abnormal -->
-    <section class="card" aria-labelledby="uc06-title">
-      <div class="card-head"><h3 id="uc06-title">⚠️ 上报设备异常 · UC_06</h3></div>
-      <div class="card-body">
-        <div class="form-row">
-          <div class="fg" style="max-width:220px">
-            <label for="rep-pile">充电桩</label>
-            <select id="rep-pile"></select>
+        <!-- UC_01  Submit -->
+        <section class="card" aria-labelledby="uc01-title">
+          <div class="card-head"><h3 id="uc01-title">📝 提交充电申请</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="fg" style="max-width:200px">
+                <label for="sub-vehicle">车辆</label>
+                <select id="sub-vehicle"></select>
+              </div>
+              <div class="fg" style="max-width:150px">
+                <label for="sub-mode">充电模式</label>
+                <select id="sub-mode">
+                  <option value="fast">快充 30kW</option>
+                  <option value="slow">慢充 7kW</option>
+                </select>
+              </div>
+              <div class="fg" style="max-width:140px">
+                <label for="sub-target">目标电量 kWh</label>
+                <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
+              </div>
+              <div class="fg" style="max-width:180px">
+                <label for="sub-token">入场凭证</label>
+                <input id="sub-token" value="ENTRY-TOKEN-DEMO">
+              </div>
+              <button class="btn btn-pri" onclick="submitRequest()" style="align-self:flex-end">提交请求</button>
+            </div>
           </div>
-          <div class="fg" style="flex:2;min-width:220px">
-            <label for="rep-desc">问题描述</label>
-            <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+        </section>
+
+        <!-- UC_02–05  My Requests -->
+        <section class="card" aria-labelledby="myreq-title">
+          <div class="card-head">
+            <h3 id="myreq-title">📋 我的充电申请</h3>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="inline-stat" id="req-stat">暂无记录</span>
+              <span class="refresh-indicator"><span class="ri-dot" id="user-ri-dot"></span><span id="user-ri-label">5s 后刷新</span></span>
+              <button class="btn btn-ghost btn-sm" onclick="refreshMyRequests()" aria-label="刷新请求列表">🔄</button>
+            </div>
           </div>
-          <button class="btn btn-out" onclick="reportAbnormal()" style="align-self:flex-end">提交上报</button>
-        </div>
+          <div class="card-body flat">
+            <div class="tbl-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>排队号</th><th>请求编号</th><th>状态</th><th>模式</th>
+                    <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tb-myreq"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
       </div>
-    </section>
+
+      <!-- ═══════════ RIGHT COLUMN ═══════════ -->
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <!-- UC_06  Report Abnormal -->
+        <section class="card" aria-labelledby="uc06-title">
+          <div class="card-head"><h3 id="uc06-title">⚠️ 上报异常设备</h3></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="fg" style="max-width:220px">
+                <label for="rep-pile">充电桩</label>
+                <select id="rep-pile"></select>
+              </div>
+              <div class="fg" style="flex:2;min-width:220px">
+                <label for="rep-desc">问题描述</label>
+                <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+              </div>
+              <button class="btn btn-out" onclick="reportAbnormal()" style="align-self:flex-end">提交上报</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- UC_07  My Bills -->
+        <section class="card" aria-labelledby="bills-title">
+          <div class="card-head">
+            <h3 id="bills-title">💰 我的账单</h3>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="inline-stat" id="bill-stat">暂无记录</span>
+              <button class="btn btn-ghost btn-sm" onclick="refreshMyBills()" aria-label="刷新账单">🔄</button>
+            </div>
+          </div>
+          <div class="card-body flat">
+            <div class="tbl-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>账单编号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
+                    <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tb-bills"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════
        ADMIN PANEL
        ═══════════════════════════════════════════ -->
   <div class="hidden" id="admin-panel" role="tabpanel">
-
-    <!-- Dashboard metrics -->
-    <div class="stat-row" id="admin-stats"></div>
 
     <!-- UC_08  Pile Status -->
     <section class="card" aria-labelledby="uc08-title">
@@ -707,6 +813,8 @@
         </div>
       </div>
       <div class="card-body">
+        <!-- UC_08 inline stats -->
+        <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem" id="pile-stats"></div>
         <!-- Waiting queue summary -->
         <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap" id="queue-summary"></div>
         <div class="pile-grid" id="pile-grid"></div>
@@ -714,7 +822,7 @@
     </section>
 
     <!-- UC_09/10  Fault + Reports  (two-column) -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="admin-cols">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" class="admin-cols">
       <section class="card" aria-labelledby="fault-title">
         <div class="card-head"><h3 id="fault-title">🔧 故障管理 · UC_09 / 10</h3></div>
         <div class="card-body">
@@ -727,10 +835,8 @@
               <label for="flt-type">故障类型</label>
               <input id="flt-type" value="供电故障">
             </div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-danger" onclick="confirmFault()">确认故障</button>
-            <button class="btn btn-out" onclick="resumePile()">恢复桩</button>
+            <button class="btn btn-danger" onclick="confirmFault()" style="align-self:flex-end;margin-left:auto">确认故障</button>
+            <button class="btn btn-out" onclick="resumePile()" style="align-self:flex-end">恢复桩</button>
           </div>
         </div>
       </section>
@@ -844,6 +950,42 @@ function stopTick() {
   if (_countdown) { clearInterval(_countdown); _countdown = null; }
 }
 
+// ── Login role switching ──────────────────────────────────────
+let LOGIN_ROLE = "admin";
+
+function switchLoginRole(role) {
+  LOGIN_ROLE = role;
+  const tabAdmin = document.getElementById("tab-admin");
+  const tabUser = document.getElementById("tab-user");
+  const userInput = document.getElementById("login-user");
+  const pwdInput = document.getElementById("login-pwd");
+  const submitBtn = document.getElementById("btn-login-submit");
+  const chipsDiv = document.getElementById("quick-accounts");
+
+  if (role === "admin") {
+    tabAdmin.classList.add("active");
+    tabUser.classList.remove("active");
+    userInput.placeholder = "admin";
+    pwdInput.placeholder = "密码";
+    submitBtn.textContent = "管理员登录";
+    chipsDiv.innerHTML = '<span class="quick-label">测试账号</span><span class="qa-chip" onclick="quickLogin(\'admin\',\'admin\')">admin</span>';
+  } else {
+    tabUser.classList.add("active");
+    tabAdmin.classList.remove("active");
+    userInput.placeholder = "alice / bob / carol / dave";
+    pwdInput.placeholder = "密码与用户名相同";
+    submitBtn.textContent = "用户登录";
+    chipsDiv.innerHTML = '<span class="quick-label">测试账号</span><span class="qa-chip" onclick="quickLogin(\'alice\',\'alice\')">alice</span><span class="qa-chip" onclick="quickLogin(\'bob\',\'bob\')">bob</span><span class="qa-chip" onclick="quickLogin(\'carol\',\'carol\')">carol</span><span class="qa-chip" onclick="quickLogin(\'dave\',\'dave\')">dave</span>';
+  }
+}
+
+// ── Quick login: pre-fill and submit ────────────────────────────
+function quickLogin(user, pwd) {
+  document.getElementById("login-user").value = user;
+  document.getElementById("login-pwd").value = pwd;
+  doLogin();
+}
+
 // ── Login / Logout ─────────────────────────────────────────────
 async function doLogin() {
   const u = document.getElementById("login-user").value.trim();
@@ -917,31 +1059,6 @@ const STATUS_MAP = {
 function statBadge(s) { const [c,l]=STATUS_MAP[s]||["badge-neutral",s]; return `<span class="badge ${c}">${l}</span>`; }
 function billBadge(s) { return s==="paid"?'<span class="badge badge-success">已支付</span>':'<span class="badge badge-warning">待支付</span>'; }
 
-// ═══════════════════════════════════════════
-// USER: Dashboard stats
-// ═══════════════════════════════════════════
-async function updateUserStats(requests, bills) {
-  const active = requests.find(r => ["waiting","dispatched","queuing_pile","charging"].includes(r.status));
-  let statusLabel = "无活跃请求", statusCls = "", waitPos = "—", estWait = "—";
-  if (active) {
-    const [,lbl] = STATUS_MAP[active.status] || ["",""];
-    statusLabel = lbl;
-    statusCls = active.status === "charging" ? "ok" : (active.status === "dispatched" ? "warn" : "");
-    waitPos = active.waitingPosition != null ? String(active.waitingPosition) : "—";
-    estWait = active.estimatedWaitMinutes != null ? active.estimatedWaitMinutes + " min" : "—";
-  }
-  const totalBills = bills.length;
-  const totalSpent = bills.reduce((s,b) => s + (b.total_amount||0), 0);
-  const totalKwh   = bills.reduce((s,b) => s + (b.charged_kwh||0), 0);
-  const pending    = bills.filter(b => b.status === "pending").length;
-
-  document.getElementById("user-stats").innerHTML = `
-    <div class="stat-card ${statusCls}"><div class="stat-label">活跃请求状态</div><div class="stat-value" style="font-size:1.2rem">${statusLabel}</div><div class="stat-sub">排队位置 ${waitPos} · 预计等待 ${estWait}</div></div>
-    <div class="stat-card"><div class="stat-label">累计充电次数</div><div class="stat-value">${totalBills}</div><div class="stat-sub">共 ${totalKwh.toFixed(1)} kWh</div></div>
-    <div class="stat-card"><div class="stat-label">累计消费</div><div class="stat-value">¥${totalSpent.toFixed(2)}</div><div class="stat-sub">待支付 ${pending} 笔</div></div>
-  `;
-}
-
 // ── UC_01 Submit ───────────────────────────────────────────────
 async function submitRequest() {
   const vehicleId = +document.getElementById("sub-vehicle").value;
@@ -983,8 +1100,13 @@ async function refreshMyRequests() {
       </tr>`;
     }).join("");
   }
-  // also refresh bills for stats
-  try { const bills = await api("/api/me/bills"); updateUserStats(rows, bills); } catch{}
+  // update inline stat: total charge count + kWh
+  try {
+    const bills = await api("/api/me/bills");
+    const totalBills = bills.length;
+    const totalKwh = bills.reduce((s,b) => s + (b.charged_kwh||0), 0);
+    document.getElementById("req-stat").textContent = `累计 ${totalBills} 次充电 · ${totalKwh.toFixed(1)} kWh`;
+  } catch{}
 }
 
 async function confirmReq(id) {
@@ -1042,7 +1164,10 @@ async function refreshMyBills() {
       </tr>`;
     }).join("");
   }
-  try { const reqs = await api("/api/me/requests"); updateUserStats(reqs, rows); } catch{}
+  // update inline stat: total spent + pending
+  const totalSpent = rows.reduce((s,b) => s + (b.total_amount||0), 0);
+  const pending = rows.filter(b => b.status === "pending").length;
+  document.getElementById("bill-stat").textContent = `累计消费 ¥${totalSpent.toFixed(2)} · 待支付 ${pending} 笔`;
 }
 
 // ── Pay modal ──────────────────────────────────────────────────
@@ -1104,12 +1229,11 @@ function updateAdminStats(piles, wFast, wSlow, pendingReports) {
   const totalRev = piles.reduce((s,p)=>s+(p.totalRevenue||0),0);
   const availRate = total > 0 ? Math.round(avail/total*100) : 0;
 
-  document.getElementById("admin-stats").innerHTML = `
-    <div class="stat-card ok"><div class="stat-label">可用率</div><div class="stat-value">${availRate}%</div><div class="stat-sub">${avail}/${total} 空闲</div></div>
-    <div class="stat-card"><div class="stat-label">充电中</div><div class="stat-value">${charging}</div><div class="stat-sub">快充等候 ${wFast} · 慢充等候 ${wSlow}</div></div>
-    <div class="stat-card ${fault>0?'err':'ok'}"><div class="stat-label">故障桩</div><div class="stat-value">${fault}</div><div class="stat-sub">待处理上报 ${pendingReports}</div></div>
-    <div class="stat-card"><div class="stat-label">累计充电量</div><div class="stat-value">${totalKwh.toFixed(0)}<small style="font-size:.9rem"> kWh</small></div><div class="stat-sub">${totalSessions} 次充电</div></div>
-    <div class="stat-card"><div class="stat-label">累计收入</div><div class="stat-value">¥${totalRev.toFixed(2)}</div><div class="stat-sub">充电费 + 服务费</div></div>
+  // UC_08 card-body inline stats (above queue summary)
+  document.getElementById("pile-stats").innerHTML = `
+    <span><strong style="color:var(--electric-dim)">可用率</strong> <span class="mono">${availRate}%</span></span>
+    <span><strong style="color:var(--electric-dim)">充电中</strong> <span class="mono">${charging}</span></span>
+    <span style="color:${fault>0?'var(--err)':'var(--ok)'}"><strong>故障桩</strong> <span class="mono">${fault}</span></span>
   `;
 }
 
@@ -1122,7 +1246,6 @@ async function refreshPiles() {
   document.getElementById("queue-summary").innerHTML = `
     <span style="font-size:.82rem"><strong style="color:var(--electric-dim)">快充等候区:</strong> <span class="mono">${r.waitingQueueFast}</span> 人</span>
     <span style="font-size:.82rem"><strong style="color:var(--electric-dim)">慢充等候区:</strong> <span class="mono">${r.waitingQueueSlow}</span> 人</span>
-    <span style="font-size:.82rem"><strong style="color:var(--err)">待处理上报:</strong> <span class="mono">${r.pendingAbnormalReports}</span></span>
   `;
 
   // pile grid
@@ -1135,13 +1258,13 @@ async function refreshPiles() {
     let prog = "";
     if (p.chargingTargetKwh) {
       const pct = Math.min(100, (p.chargingProgressKwh / p.chargingTargetKwh * 100)).toFixed(1);
-      prog = `<div class="prog-bar"><div class="animated" style="width:${pct}%"></div></div>
+      prog = `<div class="pile-prog"><div class="prog-bar"><div class="animated" style="width:${pct}%"></div></div>
               <div style="display:flex;justify-content:space-between;font-size:.73rem;margin-top:2px">
-                <span><span class="live-dot"></span> ${p.chargingRequestCode}</span>
+                <span><span class="live-dot"></span> ${p.chargingLicensePlate || "—"} · ${p.chargingRequestCode}</span>
                 <span class="mono">${p.chargingProgressKwh?.toFixed(2)} / ${p.chargingTargetKwh} kWh</span>
-              </div>`;
+              </div></div>`;
     } else {
-      prog = `<div class="muted mt-1">无在充会话</div>`;
+      prog = `<div class="pile-prog"><div class="muted">无在充会话</div></div>`;
     }
 
     return `<div class="pile-card ${cardCls}">
@@ -1213,20 +1336,22 @@ async function refreshReport() {
     // CSS-only data bars for piles breakdown
     let viz = "";
     if (r.pilesBreakdown && r.pilesBreakdown.length) {
-      const maxKwh = Math.max(...r.pilesBreakdown.map(p => p.totalChargedKwh||0), 1);
-      const maxRev = Math.max(...r.pilesBreakdown.map(p => p.totalRevenue||0), 1);
-      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩充电量 (kWh)</div>
+      const maxKwh = Math.max(...r.pilesBreakdown.map(p => p.chargedKwh||0), 1);
+      const maxRev = Math.max(...r.pilesBreakdown.map(p => p.revenue||0), 1);
+      const totalKwh = r.totalChargedKwh || 0;
+      const totalRev = r.totalRevenue || 0;
+      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩充电量 (kWh) · 累计 <span style="color:var(--electric-dim)">${totalKwh.toFixed(0)} kWh</span></div>
               <div class="data-bar-group mb-2">`;
       r.pilesBreakdown.forEach(p => {
-        const w = Math.round((p.totalChargedKwh||0)/maxKwh*100);
-        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill fast" style="width:${w}%"></div></div><span class="bar-val">${(p.totalChargedKwh||0).toFixed(0)}</span></div>`;
+        const w = Math.round((p.chargedKwh||0)/maxKwh*100);
+        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill fast" style="width:${w}%"></div></div><span class="bar-val">${(p.chargedKwh||0).toFixed(0)}</span></div>`;
       });
       viz += `</div>`;
-      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩收入 (¥)</div>
+      viz += `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">各桩收入 (¥) · 累计 <span style="color:var(--electric-dim)">¥${totalRev.toFixed(2)}</span></div>
               <div class="data-bar-group">`;
       r.pilesBreakdown.forEach(p => {
-        const w = Math.round((p.totalRevenue||0)/maxRev*100);
-        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill slow" style="width:${w}%"></div></div><span class="bar-val">¥${(p.totalRevenue||0).toFixed(2)}</span></div>`;
+        const w = Math.round((p.revenue||0)/maxRev*100);
+        viz += `<div class="data-bar-row"><span class="bar-label">${p.pileCode}</span><div class="bar-track"><div class="bar-fill slow" style="width:${w}%"></div></div><span class="bar-val">¥${(p.revenue||0).toFixed(2)}</span></div>`;
       });
       viz += `</div>`;
     }

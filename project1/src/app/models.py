@@ -113,7 +113,7 @@ class ChargingPile(Base):
     __tablename__ = "charging_piles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pile_code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)  # e.g. F1, S1
+    pile_code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)  # e.g. F1, T1
     mode: Mapped[ChargeMode] = mapped_column(SAEnum(ChargeMode), nullable=False)
     power_kw: Mapped[float] = mapped_column(Float, nullable=False)
     status: Mapped[PileStatus] = mapped_column(

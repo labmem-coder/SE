@@ -82,10 +82,12 @@ def query_pile_status(
             .first()
         )
         active_request_code: Optional[str] = None
+        active_license_plate: Optional[str] = None
         progress: Optional[float] = None
         target: Optional[float] = None
         if active_session is not None:
             active_request_code = active_session.request.request_code
+            active_license_plate = active_session.request.vehicle.license_plate
             progress = round(active_session.charged_kwh, 3)
             target = active_session.target_kwh
 
@@ -97,6 +99,7 @@ def query_pile_status(
                 powerKw=pile.power_kw,
                 status=pile.status,
                 chargingRequestCode=active_request_code,
+                chargingLicensePlate=active_license_plate,
                 chargingProgressKwh=progress,
                 chargingTargetKwh=target,
                 queueLength=slot_count,

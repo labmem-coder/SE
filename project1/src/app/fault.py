@@ -33,7 +33,7 @@ def _make_request_code() -> str:
 
 def _assign_queue_number(db: Session, mode) -> str:
     """给重调度请求生成排队号。模式前缀 + 当日累计计数。"""
-    prefix = "F" if mode.value == "fast" else "S"
+    prefix = "F" if mode.value == "fast" else "T"
     today = datetime.utcnow().date()
     start = datetime.combine(today, datetime.min.time())
     count = (

@@ -163,6 +163,7 @@ class PileStatusEntry(BaseModel):
     powerKw: float
     status: PileStatus
     chargingRequestCode: Optional[str] = None     # 正在充电的请求编号
+    chargingLicensePlate: Optional[str] = None    # 正在充电汽车的车牌号
     chargingProgressKwh: Optional[float] = None
     chargingTargetKwh: Optional[float] = None
     queueLength: int = 0                           # 含正在充电
