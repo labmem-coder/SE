@@ -40,6 +40,8 @@ from ..schemas import (
     ConfirmPileFaultIn,
     ConfirmPileFaultOut,
     OperationReportOut,
+    PileQueueDetailOut,
+    PileQueuedVehicle,
     PileStatusEntry,
     QueryPileStatusOut,
     ResumePileOut,
@@ -136,6 +138,57 @@ def query_pile_status(
         waitingQueueSlow=waiting_slow,
         pendingAbnormalReports=pending_reports,
     )
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# UC_08b 查看各充电桩等候服务的车辆信息（spec §5.3 必需字段）
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/piles/{pile_id}/queue", response_model=PileQueueDetailOut)
+def query_pile_queue_detail(
+    pile_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(admin_required),
+) -> PileQueueDetailOut:
+    pile = db.get(ChargingPile, pile_id)
+    if pile is None:
+        raise HTTPException(status_code=404, detail="pile not found")
+
+    advance_active_sessions(db)
+    db.commit()
+
+    rows = (
+        db.query(ChargingRequest)
+        .filter(
+            ChargingRequest.assigned_pile_id == pile.id,
+            ChargingRequest.status.in_(PILE_SLOT_STATUSES),
+        )
+        .all()
+    )
+    # CHARGING 优先排首位，其余按到达顺序
+    def _key(r: ChargingRequest):
+        charging = 0 if r.status == RequestStatus.CHARGING else 1
+        arrived = r.pile_queue_arrived_at or r.dispatched_at or r.submitted_at
+        return (charging, arrived)
+    rows.sort(key=_key)
+
+    now = datetime.utcnow()
+    vehicles: list[PileQueuedVehicle] = []
+    for r in rows:
+        duration_min = (now - r.submitted_at).total_seconds() / 60.0
+        vehicles.append(
+            PileQueuedVehicle(
+                userId=r.user_id,
+                licensePlate=r.vehicle.license_plate,
+                batteryCapacityKwh=r.vehicle.battery_capacity_kwh,
+                requestedAmountKwh=r.target_amount_kwh,
+                queueDurationMinutes=round(duration_min, 2),
+                status=r.status,
+                queueNumber=r.queue_number,
+            )
+        )
+    return PileQueueDetailOut(pileId=pile.id, pileCode=pile.pile_code, vehicles=vehicles)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -245,17 +298,27 @@ def query_operation_report(
         .count()
     )
 
-    # 按桩分组
+    # 按桩分组 —— spec §5.3 报表字段
     pile_breakdown: list[dict] = []
     for pile in db.query(ChargingPile).order_by(ChargingPile.id).all():
         pile_sessions = [s for s in sessions if s.pile_id == pile.id]
         pile_bills = [b for b in bills if b.session.pile_id == pile.id]  # type: ignore[union-attr]
+        # 累计充电时长（小时）：会话已结束 → ended_at-started_at；否则按 charged_kwh/power 推算
+        total_duration_h = 0.0
+        for s in pile_sessions:
+            if s.ended_at is not None and s.started_at is not None:
+                total_duration_h += (s.ended_at - s.started_at).total_seconds() / 3600.0
+            elif s.power_kw > 0:
+                total_duration_h += s.charged_kwh / s.power_kw
         pile_breakdown.append(
             {
                 "pileCode": pile.pile_code,
                 "mode": pile.mode.value,
                 "sessions": len(pile_sessions),
                 "chargedKwh": round(sum(s.charged_kwh for s in pile_sessions), 3),
+                "chargingDurationHours": round(total_duration_h, 3),
+                "chargingFee": round(sum(b.charging_fee for b in pile_bills), 2),
+                "serviceFee": round(sum(b.service_fee for b in pile_bills), 2),
                 "revenue": round(sum(b.total_amount for b in pile_bills), 2),
                 "faults": db.query(FaultRecord)
                 .filter(

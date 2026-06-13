@@ -36,11 +36,17 @@ def _ensure_user(
     return user
 
 
-def _ensure_vehicle(db: Session, plate: str, owner: User) -> Vehicle:
+def _ensure_vehicle(
+    db: Session, plate: str, owner: User, battery_capacity: float = 60.0
+) -> Vehicle:
     v = db.query(Vehicle).filter(Vehicle.license_plate == plate).first()
     if v:
         return v
-    v = Vehicle(license_plate=plate, owner_id=owner.id)
+    v = Vehicle(
+        license_plate=plate,
+        owner_id=owner.id,
+        battery_capacity_kwh=battery_capacity,
+    )
     db.add(v)
     db.flush()
     return v

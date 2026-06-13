@@ -131,7 +131,19 @@ def _vehicle_id(db, code: str) -> int:
 
 
 def _pile_id(db, code: str) -> int:
-    p = db.query(ChargingPile).filter(ChargingPile.pile_code == code).first()
+    # 测试用例使用 T 前缀代表慢充；本仓库当前 seed 用 S 前缀
+    candidates = [code]
+    if code.startswith("T"):
+        candidates.append("S" + code[1:])
+    elif code.startswith("S"):
+        candidates.append("T" + code[1:])
+    p = (
+        db.query(ChargingPile)
+        .filter(ChargingPile.pile_code.in_(candidates))
+        .first()
+    )
+    if p is None:
+        raise ValueError(f"pile {code} not found (tried {candidates})")
     return p.id
 
 
@@ -524,6 +536,18 @@ EXPECTED_SAMPLES = [
 def main():
     setup_world()
 
+    # 通过环境变量切换故障调度策略；同时影响输出文件名后缀
+    fault_policy = os.environ.get("FAULT_POLICY", app_config.FAULT_DISPATCH_POLICY)
+    app_config.FAULT_DISPATCH_POLICY = fault_policy
+    # 同步给已 import 的 fault 模块（属于"运行时" override）
+    app_fault.FAULT_DISPATCH_POLICY = fault_policy
+
+    suffix_map = {
+        "priority":   "_优先级调度",
+        "time_order": "_时间顺序调度",
+    }
+    suffix = suffix_map.get(fault_policy, f"_{fault_policy}")
+
     base_day = datetime(2026, 6, 9, 0, 0, 0)
     event_by_time = {_parse_time(e[0], base_day): e for e in EVENTS}
 
@@ -535,19 +559,20 @@ def main():
         timepoints.append(t)
         t += timedelta(minutes=5)
 
-    print("=== 验收测试模拟（参数：快充 {fp}kW×{fc}，慢充 {sp}kW×{sc}，M={m}） ===".format(
+    print("=== 验收测试模拟（参数：快充 {fp}kW×{fc}，慢充 {sp}kW×{sc}，M={m}，故障策略={pol}） ===".format(
         fp=FAST_PILE_POWER_KW, fc=FAST_PILE_COUNT,
         sp=SLOW_PILE_POWER_KW, sc=SLOW_PILE_COUNT,
         m=PILE_QUEUE_CAPACITY,
+        pol=fault_policy,
     ))
 
     # 记录每个时间点每列各行的值，便于后续校验
     table: dict[str, list[list[str]]] = {}  # tp_str -> 6 列 × 3 行
 
-    # 写两份 CSV：项目根（用户要的"另创一个 CSV"）+ docs 副本
+    # 输出文件按策略命名
     csv_targets = [
-        os.path.abspath(os.path.join(HERE, "..", "..", "测试结果.csv")),
-        os.path.abspath(os.path.join(HERE, "..", "docs", "acceptance_test_output.csv")),
+        os.path.abspath(os.path.join(HERE, "..", "..", f"测试结果{suffix}.csv")),
+        os.path.abspath(os.path.join(HERE, "..", "docs", f"acceptance_test_output{suffix}.csv")),
     ]
     fcsvs = [open(p, "w", encoding="utf-8") for p in csv_targets]
 
@@ -577,12 +602,15 @@ def main():
             ev_label = ""
 
         piles_state, waiting, fault_q = render_state(tp)
+        # 兼容 seed 用 S 前缀 vs 测试报表用 T 前缀
+        def _col(code):
+            return piles_state.get(code) or piles_state.get(code.replace("T", "S")) or []
         cells_per_col = [
-            _cell_rows(piles_state.get("F1", [])),
-            _cell_rows(piles_state.get("F2", [])),
-            _cell_rows(piles_state.get("T1", [])),
-            _cell_rows(piles_state.get("T2", [])),
-            _cell_rows(piles_state.get("T3", [])),
+            _cell_rows(_col("F1")),
+            _cell_rows(_col("F2")),
+            _cell_rows(_col("T1")),
+            _cell_rows(_col("T2")),
+            _cell_rows(_col("T3")),
             _wait_rows(waiting),
         ]
         table[tp.strftime("%H:%M")] = cells_per_col

@@ -74,6 +74,7 @@ def _make_request_code() -> str:
 
 
 def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
+    """排队号：spec §1 示例 "F1, F2, T1, T2" —— 自然递增，不补零。"""
     prefix = "F" if mode == ChargeMode.FAST else "T"
     today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
     count = (
@@ -84,7 +85,7 @@ def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
         )
         .count()
     )
-    return f"{prefix}{count + 1:03d}"
+    return f"{prefix}{count + 1}"
 
 
 def _user_has_overdue_unpaid_bill(db: Session, user_id: int) -> bool:
@@ -136,6 +137,20 @@ def _waiting_area_count(db: Session) -> int:
 def _validate_entry_token(token: str) -> bool:
     """等候区入场凭证。课程项目中接受任何非空字符串。"""
     return bool(token and token.strip())
+
+
+def _bill_to_out(bill: Bill) -> BillOut:
+    """把 Bill ORM 转 BillOut，附加 spec 必需的会话字段（桩号、起止时间、时长）。"""
+    base = _bill_to_out(bill).model_dump()
+    sess = bill.session
+    if sess is not None:
+        base["pile_code"] = sess.pile.pile_code if sess.pile else None
+        base["started_at"] = sess.started_at
+        base["ended_at"] = sess.ended_at
+        if sess.ended_at is not None and sess.started_at is not None:
+            duration_h = (sess.ended_at - sess.started_at).total_seconds() / 3600.0
+            base["charging_duration_hours"] = round(duration_h, 4)
+    return BillOut.model_validate(base)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -529,20 +544,21 @@ def query_bill_by_request(
     bill = db.query(Bill).filter(Bill.session_id == session.id).first()
     if bill is None:
         raise HTTPException(status_code=404, detail="bill not generated yet")
-    return bill  # type: ignore[return-value]
+    return _bill_to_out(bill)
 
 
 @router.get("/me/bills", response_model=list[BillOut])
 def list_my_bills(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
-) -> list[Bill]:
-    return (
+) -> list[BillOut]:
+    bills = (
         db.query(Bill)
         .filter(Bill.user_id == user.id)
         .order_by(Bill.created_at.desc())
         .all()
     )
+    return [_bill_to_out(b) for b in bills]
 
 
 @router.post("/bills/{bill_id}/pay", response_model=ConfirmPaymentOut)
@@ -556,7 +572,7 @@ def confirm_payment(
     if bill is None or bill.user_id != user.id:
         raise HTTPException(status_code=404, detail="bill not found")
     if bill.status == BillStatus.PAID:
-        return ConfirmPaymentOut(accepted=True, message="bill already paid", bill=BillOut.model_validate(bill))
+        return ConfirmPaymentOut(accepted=True, message="bill already paid", bill=_bill_to_out(bill))
 
     bill.status = BillStatus.PAID
     bill.paid_at = datetime.utcnow()
@@ -566,5 +582,5 @@ def confirm_payment(
     return ConfirmPaymentOut(
         accepted=True,
         message="payment recorded",
-        bill=BillOut.model_validate(bill),
+        bill=_bill_to_out(bill),
     )

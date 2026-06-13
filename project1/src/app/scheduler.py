@@ -21,7 +21,10 @@ from sqlalchemy.orm import Session
 
 from .config import (
     ENTRY_CONFIRM_TIMEOUT_SECONDS,
+    EXTENDED_SCHEDULE_POLICY,
+    PILE_QUEUE_CAPACITY,
     TIME_ACCELERATION,
+    WAITING_AREA_SIZE,
 )
 from .models import (
     ChargeMode,
@@ -298,14 +301,32 @@ def try_dispatch(db: Session) -> int:
     """把尽可能多的等待请求派发到充电区。返回派发数量。
 
     幂等：任何时候都可调用。先推进时间与超时，再做派发。
+
+    根据 config.EXTENDED_SCHEDULE_POLICY 切换调度算法：
+        normal       —— 标准单车顺序贪心（默认）
+        multi_short  —— spec §8.1 单次多车总充电时长最短
+        batch_short  —— spec §8.2 批量调度（充电区+等候区满时触发，混合快慢）
     """
     advance_active_sessions(db)
     handle_completed_sessions(db)
     handle_dispatch_timeouts(db)
 
     dispatched_total = 0
-    for mode in (ChargeMode.FAST, ChargeMode.SLOW):
-        dispatched_total += _dispatch_mode(db, mode)
+
+    if EXTENDED_SCHEDULE_POLICY == "batch_short":
+        # 8.2 批量：仅当全部车位被占满才触发
+        if _batch_full(db):
+            dispatched_total += _dispatch_batch_mixed(db)
+        # 否则按 normal 兜底
+        if dispatched_total == 0:
+            for mode in (ChargeMode.FAST, ChargeMode.SLOW):
+                dispatched_total += _dispatch_mode(db, mode)
+    elif EXTENDED_SCHEDULE_POLICY == "multi_short":
+        for mode in (ChargeMode.FAST, ChargeMode.SLOW):
+            dispatched_total += _dispatch_mode_multi_short(db, mode)
+    else:
+        for mode in (ChargeMode.FAST, ChargeMode.SLOW):
+            dispatched_total += _dispatch_mode(db, mode)
 
     # 推进一下：派发后可能让一些桩立即开始充电
     for pile in db.query(ChargingPile).filter(
@@ -473,3 +494,255 @@ def estimate_wait_minutes(db: Session, req: ChargingRequest) -> float:
         return round(ahead * 60.0, 2)
 
     return 0.0
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 扩展调度 §8.1 单次多车总充电时长最短
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def _eligible_piles(db: Session, mode: ChargeMode):
+    """返回该模式下非故障桩的 (pile, free_slots, current_wait_h, power_kw) 列表。"""
+    piles = (
+        db.query(ChargingPile)
+        .filter(
+            ChargingPile.mode == mode,
+            ChargingPile.status != PileStatus.FAULT,
+        )
+        .all()
+    )
+    info = []
+    for p in piles:
+        used = pile_slot_count(db, p.id)
+        free = p.queue_capacity - used
+        if free <= 0:
+            continue
+        info.append({
+            "pile": p,
+            "free": free,
+            "wait_h": pile_queue_wait_hours(db, p),
+            "power": p.power_kw,
+        })
+    return info
+
+
+def _dispatch_mode_multi_short(db: Session, mode: ChargeMode) -> int:
+    """spec §8.1：先派故障队列（保持优先级），再一次性把等候区前 K 辆
+    （K=可用桩位数）按"总完成时间最短"分配，桩内按 SPT 顺序。"""
+    count = 0
+    # Phase 1: FAULT_QUEUED 仍按 priority_time 单辆派
+    while True:
+        req = (
+            db.query(ChargingRequest)
+            .filter(
+                ChargingRequest.mode == mode,
+                ChargingRequest.status == RequestStatus.FAULT_QUEUED,
+            )
+            .order_by(ChargingRequest.priority_time.asc())
+            .first()
+        )
+        if not req:
+            break
+        if not _dispatch_one(db, req):
+            return count
+        count += 1
+
+    # Phase 2: WAITING 多车一次性分配
+    pile_info = _eligible_piles(db, mode)
+    if not pile_info:
+        return count
+    waiting = (
+        db.query(ChargingRequest)
+        .filter(
+            ChargingRequest.mode == mode,
+            ChargingRequest.status == RequestStatus.WAITING,
+        )
+        .order_by(ChargingRequest.priority_time.asc())
+        .all()
+    )
+    if not waiting:
+        return count
+
+    total_free = sum(p["free"] for p in pile_info)
+    K = min(total_free, len(waiting))
+    cars = waiting[:K]
+    P = len(pile_info)
+
+    # 暴力枚举所有 P^K 种分桩，桩内 SPT。复杂度 P^K，对 K≤8/P≤3 完全可接受。
+    best_cost = float("inf")
+    best_assignment = None
+
+    def evaluate(assignment):
+        groups = [[] for _ in range(P)]
+        for i, p_idx in enumerate(assignment):
+            groups[p_idx].append(cars[i])
+        for p_idx, g in enumerate(groups):
+            if len(g) > pile_info[p_idx]["free"]:
+                return None
+        total = 0.0
+        for p_idx, g in enumerate(groups):
+            if not g:
+                continue
+            info = pile_info[p_idx]
+            sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
+            cumulative = info["wait_h"]
+            for c in sorted_g:
+                cumulative += c.target_amount_kwh / info["power"]
+                total += cumulative
+        return total
+
+    def search(i, current):
+        nonlocal best_cost, best_assignment
+        if i == K:
+            cost = evaluate(current)
+            if cost is not None and cost < best_cost:
+                best_cost = cost
+                best_assignment = list(current)
+            return
+        for p_idx in range(P):
+            current.append(p_idx)
+            search(i + 1, current)
+            current.pop()
+
+    search(0, [])
+    if best_assignment is None:
+        return count
+
+    # 执行：桩内按 SPT 给 dispatched_at 微增，保证桩内 FIFO 顺序对
+    groups = [[] for _ in range(P)]
+    for i, p_idx in enumerate(best_assignment):
+        groups[p_idx].append(cars[i])
+    now = datetime.utcnow()
+    for p_idx, g in enumerate(groups):
+        if not g:
+            continue
+        info = pile_info[p_idx]
+        sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
+        for offset, c in enumerate(sorted_g):
+            c.status = RequestStatus.DISPATCHED
+            c.assigned_pile_id = info["pile"].id
+            c.dispatched_at = now + timedelta(microseconds=offset)
+            if info["pile"].status == PileStatus.AVAILABLE:
+                info["pile"].status = PileStatus.OCCUPIED
+            count += 1
+    db.flush()
+    return count
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 扩展调度 §8.2 批量调度（全车位满才触发，混合快慢）
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def _batch_full(db: Session) -> bool:
+    """spec §8.2 触发条件：到达充电站车辆数 == 全部车位（充电区 M·总桩 + 等候区 N）。"""
+    piles = db.query(ChargingPile).filter(ChargingPile.status != PileStatus.FAULT).all()
+    total_capacity = sum(p.queue_capacity for p in piles) + WAITING_AREA_SIZE
+    in_system = (
+        db.query(ChargingRequest)
+        .filter(
+            ChargingRequest.status.in_(
+                (
+                    RequestStatus.WAITING,
+                    RequestStatus.FAULT_QUEUED,
+                    RequestStatus.DISPATCHED,
+                    RequestStatus.QUEUING_PILE,
+                    RequestStatus.CHARGING,
+                )
+            )
+        )
+        .count()
+    )
+    return in_system >= total_capacity
+
+
+def _dispatch_batch_mixed(db: Session) -> int:
+    """spec §8.2：全部车位满 → 一次性把等候区所有车（不分快慢）按
+    "总完成时长最短"分配到所有桩（可分配任意类型桩）。桩内 SPT。"""
+    piles = db.query(ChargingPile).filter(ChargingPile.status != PileStatus.FAULT).all()
+    pile_info = []
+    for p in piles:
+        used = pile_slot_count(db, p.id)
+        free = p.queue_capacity - used
+        if free <= 0:
+            continue
+        pile_info.append({
+            "pile": p,
+            "free": free,
+            "wait_h": pile_queue_wait_hours(db, p),
+            "power": p.power_kw,
+        })
+    if not pile_info:
+        return 0
+    waiting = (
+        db.query(ChargingRequest)
+        .filter(ChargingRequest.status == RequestStatus.WAITING)
+        .order_by(ChargingRequest.priority_time.asc())
+        .all()
+    )
+    if not waiting:
+        return 0
+    total_free = sum(p["free"] for p in pile_info)
+    K = min(total_free, len(waiting))
+    cars = waiting[:K]
+    P = len(pile_info)
+
+    best_cost = float("inf")
+    best_assignment = None
+
+    def evaluate(assignment):
+        groups = [[] for _ in range(P)]
+        for i, p_idx in enumerate(assignment):
+            groups[p_idx].append(cars[i])
+        for p_idx, g in enumerate(groups):
+            if len(g) > pile_info[p_idx]["free"]:
+                return None
+        total = 0.0
+        for p_idx, g in enumerate(groups):
+            if not g:
+                continue
+            info = pile_info[p_idx]
+            sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
+            cumulative = info["wait_h"]
+            for c in sorted_g:
+                cumulative += c.target_amount_kwh / info["power"]
+                total += cumulative
+        return total
+
+    def search(i, current):
+        nonlocal best_cost, best_assignment
+        if i == K:
+            cost = evaluate(current)
+            if cost is not None and cost < best_cost:
+                best_cost = cost
+                best_assignment = list(current)
+            return
+        for p_idx in range(P):
+            current.append(p_idx)
+            search(i + 1, current)
+            current.pop()
+
+    search(0, [])
+    if best_assignment is None:
+        return 0
+
+    count = 0
+    groups = [[] for _ in range(P)]
+    for i, p_idx in enumerate(best_assignment):
+        groups[p_idx].append(cars[i])
+    now = datetime.utcnow()
+    for p_idx, g in enumerate(groups):
+        if not g:
+            continue
+        info = pile_info[p_idx]
+        sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
+        for offset, c in enumerate(sorted_g):
+            # 8.2: 批量调度允许跨模式分配桩，可能不匹配原 mode
+            c.status = RequestStatus.DISPATCHED
+            c.assigned_pile_id = info["pile"].id
+            c.dispatched_at = now + timedelta(microseconds=offset)
+            if info["pile"].status == PileStatus.AVAILABLE:
+                info["pile"].status = PileStatus.OCCUPIED
+            count += 1
+    db.flush()
+    return count

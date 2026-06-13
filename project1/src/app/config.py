@@ -40,3 +40,14 @@ TIME_ACCELERATION = 10.0
 # 请求编号前缀
 REQUEST_CODE_PREFIX = "REQ"
 BILL_CODE_PREFIX = "BILL"
+
+# 故障调度策略 —— spec §7：两种都要实现，验收随机选
+#   "priority"   : 优先级调度（暂停等候区，先派故障队列）
+#   "time_order" : 时间顺序调度（故障队列 + 其它同类型桩未充电车辆合并按号码顺序重调）
+FAULT_DISPATCH_POLICY: str = "priority"
+
+# 扩展调度（spec §8 选做）—— 默认关闭
+#   "normal"       : 标准单车顺序调度（默认）
+#   "multi_short"  : 8.1 单次多车总充电时长最短
+#   "batch_short"  : 8.2 批量调度（充电区+等候区满时触发）
+EXTENDED_SCHEDULE_POLICY: str = "normal"

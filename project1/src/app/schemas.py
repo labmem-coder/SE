@@ -130,6 +130,8 @@ class ReportDeviceAbnormalOut(BaseModel):
 
 
 class BillOut(ORMBase):
+    """详单 —— spec §5.2 用户客户端"充电详单"必需字段。"""
+
     id: int
     bill_code: str
     session_id: int
@@ -141,6 +143,11 @@ class BillOut(ORMBase):
     created_at: datetime
     paid_at: Optional[datetime] = None
     pay_channel: Optional[str] = None
+    # spec 必需字段：充电桩编号、启动时间、停止时间、充电时长
+    pile_code: Optional[str] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
+    charging_duration_hours: Optional[float] = None
 
 
 class ConfirmPaymentIn(BaseModel):
@@ -178,6 +185,24 @@ class QueryPileStatusOut(BaseModel):
     waitingQueueFast: int
     waitingQueueSlow: int
     pendingAbnormalReports: int
+
+
+class PileQueuedVehicle(BaseModel):
+    """管理员"查看各充电桩等候服务的车辆信息" spec 要求字段。"""
+
+    userId: int
+    licensePlate: str
+    batteryCapacityKwh: float           # 车辆电池总容量(度)
+    requestedAmountKwh: float           # 请求充电量(度)
+    queueDurationMinutes: float         # 排队时长（提交至今的分钟数）
+    status: RequestStatus
+    queueNumber: str
+
+
+class PileQueueDetailOut(BaseModel):
+    pileId: int
+    pileCode: str
+    vehicles: list[PileQueuedVehicle]
 
 
 # ────────────────── UC_09 ConfirmPileFault / UC_10 ResumePile ──────────────────

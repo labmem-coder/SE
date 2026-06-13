@@ -7,7 +7,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from .config import REQUEST_CODE_PREFIX
+from .config import FAULT_DISPATCH_POLICY, REQUEST_CODE_PREFIX
 from .models import (
     AbnormalReport,
     ChargingPile,
@@ -32,7 +32,7 @@ def _make_request_code() -> str:
 
 
 def _assign_queue_number(db: Session, mode) -> str:
-    """给重调度请求生成排队号。模式前缀 + 当日累计计数。"""
+    """给重调度请求生成排队号。模式前缀 + 当日累计计数（不补零）。"""
     prefix = "F" if mode.value == "fast" else "T"
     today = datetime.utcnow().date()
     start = datetime.combine(today, datetime.min.time())
@@ -44,7 +44,7 @@ def _assign_queue_number(db: Session, mode) -> str:
         )
         .count()
     )
-    return f"{prefix}{count + 1:03d}"
+    return f"{prefix}{count + 1}"
 
 
 def confirm_pile_fault(
@@ -154,14 +154,43 @@ def confirm_pile_fault(
     pile.status = PileStatus.FAULT
     db.flush()
 
-    # 5) 重新调度
+    # 5) 按策略重调度
+    if FAULT_DISPATCH_POLICY == "time_order":
+        # spec 7.2 时间顺序调度：把其它同类型桩中【尚未开始充电】的 QUEUING_PILE 车
+        # 全部撤回到 FAULT_QUEUED，与本次故障腾出的车合并，按 priority_time 重排
+        other_pending = (
+            db.query(ChargingRequest)
+            .join(ChargingPile, ChargingRequest.assigned_pile_id == ChargingPile.id)
+            .filter(
+                ChargingPile.mode == pile.mode,
+                ChargingPile.id != pile.id,
+                ChargingRequest.status.in_(
+                    (RequestStatus.DISPATCHED, RequestStatus.QUEUING_PILE)
+                ),
+            )
+            .all()
+        )
+        for r in other_pending:
+            r.status = RequestStatus.FAULT_QUEUED
+            r.assigned_pile_id = None
+            r.pile_queue_arrived_at = None
+            r.dispatched_at = None
+            r.confirmed_at = None
+            rescheduled_count += 1
+        db.flush()
+    # 不管哪种策略，Phase 1 (FAULT_QUEUED) 都按 priority_time 派出，再开等候区
     try_dispatch(db)
 
     return fault, interrupted_session_id, rescheduled_count
 
 
 def resume_pile(db: Session, pile_id: int) -> None:
-    """恢复桩服务：FAULT → AVAILABLE，关联的最新未结故障记录 resolved_at = now。"""
+    """恢复桩服务：FAULT → AVAILABLE。
+
+    按 spec §7.3：若其它同类型桩**仍有车辆排队**，需暂停等候区叫号服务，把
+    其它同类型桩中【尚未充电】的车辆 (DISPATCHED + QUEUING_PILE) 与本桩合为
+    一组，按排队号码（priority_time）顺序重新调度；调度完毕后再恢复等候区。
+    """
     pile = db.get(ChargingPile, pile_id)
     if pile is None:
         raise ValueError("ChargingPile not found")
@@ -181,5 +210,28 @@ def resume_pile(db: Session, pile_id: int) -> None:
     pile.status = PileStatus.AVAILABLE
     _refresh_pile_status(db, pile)
     db.flush()
+
+    # spec §7.3：检查是否需要"合并重排"
+    other_pending = (
+        db.query(ChargingRequest)
+        .join(ChargingPile, ChargingRequest.assigned_pile_id == ChargingPile.id)
+        .filter(
+            ChargingPile.mode == pile.mode,
+            ChargingPile.id != pile.id,
+            ChargingRequest.status.in_(
+                (RequestStatus.DISPATCHED, RequestStatus.QUEUING_PILE)
+            ),
+        )
+        .all()
+    )
+    if other_pending:
+        # 撤回到 FAULT_QUEUED 高优先级队列；按 priority_time 重排
+        for r in other_pending:
+            r.status = RequestStatus.FAULT_QUEUED
+            r.assigned_pile_id = None
+            r.pile_queue_arrived_at = None
+            r.dispatched_at = None
+            r.confirmed_at = None
+        db.flush()
 
     try_dispatch(db)
