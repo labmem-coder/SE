@@ -395,21 +395,36 @@ def _cumulative_kwh_fee(db, req: ChargingRequest):
 
 
 def _pile_cars(db, pile: ChargingPile, when: datetime):
+    """桩列显示：
+       - 含 CHARGING / QUEUING_PILE 正常车
+       - 如果桩本身是 FAULT 状态：还显示挂在它下面的 FAULT_QUEUED 车（带 "(故障)"），
+         这样评卷者能看到"这个故障桩里还有哪些车没派出去"
+       - 别桩被 §7.2 拉过来又派不出去的 FAULT_QUEUED 车不在这里显示，落到等候区列
+    """
+    statuses = [RequestStatus.QUEUING_PILE, RequestStatus.CHARGING]
+    if pile.status == PileStatus.FAULT:
+        statuses.append(RequestStatus.FAULT_QUEUED)
     reqs = (
         db.query(ChargingRequest)
         .filter(
             ChargingRequest.assigned_pile_id == pile.id,
-            ChargingRequest.status.in_(
-                (RequestStatus.QUEUING_PILE, RequestStatus.CHARGING)
-            ),
+            ChargingRequest.status.in_(statuses),
         )
         .all()
     )
 
     def sort_key(r: ChargingRequest):
-        charging_flag = 0 if r.status == RequestStatus.CHARGING else 1
+        # 排序：CHARGING 第 1 → QUEUING_PILE/DISPATCHED 按到达时间 → FAULT_QUEUED 按优先级
+        if r.status == RequestStatus.CHARGING:
+            section = 0
+        elif r.status == RequestStatus.FAULT_QUEUED:
+            section = 2
+        else:
+            section = 1
+        if section == 2:
+            return (section, r.priority_time)
         arrived = r.pile_queue_arrived_at or r.dispatched_at or r.submitted_at
-        return (charging_flag, arrived)
+        return (section, arrived)
 
     reqs.sort(key=sort_key)
     out = []
@@ -423,6 +438,11 @@ def _pile_cars(db, pile: ChargingPile, when: datetime):
             total_kwh = round(prev_kwh + cur_kwh, 2)
             total_fee = round(prev_fee + cur_fee, 2)
             out.append(f"({plate},{total_kwh:.2f},{total_fee:.2f})")
+        elif r.status == RequestStatus.FAULT_QUEUED:
+            # 故障队列车：用桩列格式 (车号,已充,当前费用)，末尾标 (故障)
+            total_kwh = round(prev_kwh, 2)
+            total_fee = round(prev_fee, 2)
+            out.append(f"({plate},{total_kwh:.2f},{total_fee:.2f})(故障)")
         else:
             # QUEUING_PILE / DISPATCHED：当前 session 尚未开始，但若是故障重派，
             # 上任已充进度要显示出来，spec 用户视角应能看到累计已充
@@ -433,18 +453,44 @@ def _pile_cars(db, pile: ChargingPile, when: datetime):
 
 
 def _waiting_area(db):
-    """只显示真正的等候区（WAITING）。
-    FAULT_QUEUED 属于"损坏桩队列"，不计入 N=10，也不显示在等候区列。"""
-    rows = (
+    """等候区列：
+       - WAITING：正常等候区车
+       - FAULT_QUEUED 但被挂在非故障桩下：§7.2 拉来又派不出去的"溢出"故障车，
+         在桩列下显示不出来，回落到等候区列展示，末尾标 "(被故障队列车挤出)"
+    """
+    waiting_rows = (
         db.query(ChargingRequest)
         .filter(ChargingRequest.status == RequestStatus.WAITING)
-        .order_by(ChargingRequest.priority_time.asc(), ChargingRequest.id.asc())
         .all()
     )
+    # 找在非故障桩下的 FAULT_QUEUED（无地放）
+    overflow_fault = (
+        db.query(ChargingRequest)
+        .join(ChargingPile, ChargingRequest.assigned_pile_id == ChargingPile.id)
+        .filter(
+            ChargingRequest.status == RequestStatus.FAULT_QUEUED,
+            ChargingPile.status != PileStatus.FAULT,
+        )
+        .all()
+    )
+    # 也包含 assigned_pile_id == None 的 FAULT_QUEUED
+    null_fault = (
+        db.query(ChargingRequest)
+        .filter(
+            ChargingRequest.status == RequestStatus.FAULT_QUEUED,
+            ChargingRequest.assigned_pile_id.is_(None),
+        )
+        .all()
+    )
+    combined = waiting_rows + overflow_fault + null_fault
+    combined.sort(key=lambda r: (r.priority_time, r.id))
     out = []
-    for r in rows:
+    for r in combined:
         m = "F" if r.mode == ChargeMode.FAST else "T"
-        out.append(f"({r.vehicle.license_plate},{m},{r.target_amount_kwh:.2f})")
+        base = f"({r.vehicle.license_plate},{m},{r.target_amount_kwh:.2f})"
+        if r.status == RequestStatus.FAULT_QUEUED:
+            base += "(被故障队列车挤出)"
+        out.append(base)
     return out
 
 
@@ -654,11 +700,9 @@ def main():
         ]
         table[tp.strftime("%H:%M")] = cells_per_col
 
-        # 屏幕版（合成单行）
+        # 屏幕版（合成单行）—— 等候区列已包含 FAULT_QUEUED 车（带 "(故障)" 标记）
         fmt = lambda lst: "/".join([x for x in lst if x != "-"]) or "-"
         wait_str = " - ".join(waiting) if waiting else "-"
-        if fault_q:
-            wait_str += f"   [故障队列: {' - '.join(fault_q)}]"
         print(
             f"{tp.strftime('%H:%M'):<8}{ev_label or '-':<18}"
             f"{fmt(cells_per_col[0]):<32}{fmt(cells_per_col[1]):<32}"

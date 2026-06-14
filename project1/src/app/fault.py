@@ -125,6 +125,8 @@ def confirm_pile_fault(
                 queue_number=_assign_queue_number(db, original_req.mode),
                 submitted_at=now,
                 rescheduled_from_id=original_req.id,
+                # 显示用：暂时挂在故障桩下，被重派后会更新到新桩
+                assigned_pile_id=pile.id,
             )
             db.add(new_req)
             rescheduled_count += 1
@@ -143,7 +145,8 @@ def confirm_pile_fault(
     )
     for r in pending:
         r.status = RequestStatus.FAULT_QUEUED
-        r.assigned_pile_id = None
+        # 保留 assigned_pile_id（指向故障桩）—— 用于显示在原桩列下；
+        # 一旦被重派到其它桩，_dispatch_one 会把 assigned_pile_id 改成新桩
         r.pile_queue_arrived_at = None
         r.dispatched_at = None
         r.confirmed_at = None
@@ -172,7 +175,7 @@ def confirm_pile_fault(
         )
         for r in other_pending:
             r.status = RequestStatus.FAULT_QUEUED
-            r.assigned_pile_id = None
+            # 同样保留 assigned_pile_id（指向其原桩）—— 显示用
             r.pile_queue_arrived_at = None
             r.dispatched_at = None
             r.confirmed_at = None
@@ -228,7 +231,7 @@ def resume_pile(db: Session, pile_id: int) -> None:
         # 撤回到 FAULT_QUEUED 高优先级队列；按 priority_time 重排
         for r in other_pending:
             r.status = RequestStatus.FAULT_QUEUED
-            r.assigned_pile_id = None
+            # 保留 assigned_pile_id（指向其原桩）—— 显示用，重派后会被覆盖
             r.pile_queue_arrived_at = None
             r.dispatched_at = None
             r.confirmed_at = None
