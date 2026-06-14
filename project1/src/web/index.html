@@ -861,6 +861,14 @@
     <section class="card" aria-labelledby="uc11-title">
       <div class="card-head"><h3 id="uc11-title">📊 运营报表 · UC_11</h3></div>
       <div class="card-body">
+        <!-- 时间维度快捷切换 —— spec §5.3 要求"日/周/月" -->
+        <div class="form-row mb-2" style="gap:8px;flex-wrap:wrap">
+          <span style="font-size:.78rem;color:var(--muted);align-self:center">时间维度：</span>
+          <button class="btn btn-out btn-sm" onclick="setReportPeriod('day')">📅 今日</button>
+          <button class="btn btn-out btn-sm" onclick="setReportPeriod('week')">🗓️ 本周</button>
+          <button class="btn btn-out btn-sm" onclick="setReportPeriod('month')">📆 本月</button>
+          <button class="btn btn-out btn-sm" onclick="setReportPeriod('all')">∞ 全部</button>
+        </div>
         <div class="form-row mb-2">
           <div class="fg" style="max-width:170px">
             <label for="rep-from">开始日期</label>
@@ -872,8 +880,10 @@
           </div>
           <button class="btn btn-pri" onclick="refreshReport()" style="align-self:flex-end">查询报表</button>
         </div>
+        <!-- 按桩明细表 —— spec §5.3 必需字段 -->
+        <div id="report-table" class="mb-2"></div>
         <div id="report-visual" class="mb-2"></div>
-        <pre id="report-out" style="background:#0f172a;color:#94a3b8;padding:14px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.72rem;overflow:auto;max-height:260px">点击"查询报表"查看运营数据与可视化。</pre>
+        <pre id="report-out" style="background:#0f172a;color:#94a3b8;padding:14px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.72rem;overflow:auto;max-height:200px">点击"查询报表"查看运营数据与可视化。</pre>
       </div>
     </section>
   </div>
@@ -1188,17 +1198,25 @@ async function doPay(id) {
 async function viewBill(reqId) {
   try {
     const b = await api(`/api/bills/by-request/${reqId}`);
+    const fmtDT = (s) => s ? s.replace("T"," ").slice(0,19) : "—";
+    const durStr = b.charging_duration_hours != null
+      ? `${b.charging_duration_hours.toFixed(3)} h <span style="color:var(--muted);font-size:.75rem">(${(b.charging_duration_hours*60).toFixed(1)} 分钟)</span>`
+      : "—";
     showModal(`
       <h4>账单详情</h4>
       <table style="width:100%;font-size:.82rem">
-        <tr><td style="color:var(--muted);width:80px">编号</td><td><code class="mono">${b.bill_code}</code></td></tr>
-        <tr><td style="color:var(--muted)">充电量</td><td><strong class="mono">${b.charged_kwh} kWh</strong></td></tr>
+        <tr><td style="color:var(--muted);width:80px">详单编号</td><td><code class="mono">${b.bill_code}</code></td></tr>
+        <tr><td style="color:var(--muted)">充电桩编号</td><td><strong class="mono">${b.pile_code || "—"}</strong></td></tr>
+        <tr><td style="color:var(--muted)">充电电量</td><td><strong class="mono">${b.charged_kwh} kWh</strong></td></tr>
+        <tr><td style="color:var(--muted)">充电时长</td><td class="mono">${durStr}</td></tr>
+        <tr><td style="color:var(--muted)">启动时间</td><td class="mono" style="font-size:.78rem">${fmtDT(b.started_at)}</td></tr>
+        <tr><td style="color:var(--muted)">停止时间</td><td class="mono" style="font-size:.78rem">${fmtDT(b.ended_at)}</td></tr>
         <tr><td style="color:var(--muted)">充电费</td><td class="mono">¥${b.charging_fee}</td></tr>
         <tr><td style="color:var(--muted)">服务费</td><td class="mono">¥${b.service_fee}</td></tr>
         <tr><td style="color:var(--muted)">合计</td><td><strong class="mono" style="font-size:1.1rem;color:var(--electric-dim)">¥${b.total_amount}</strong></td></tr>
+        <tr><td style="color:var(--muted)">详单生成时间</td><td class="mono" style="font-size:.78rem">${fmtDT(b.created_at)}</td></tr>
         <tr><td style="color:var(--muted)">状态</td><td>${billBadge(b.status)}</td></tr>
-        <tr><td style="color:var(--muted)">生成时间</td><td>${b.created_at.replace("T"," ").slice(0,19)}</td></tr>
-        ${b.paid_at?`<tr><td style="color:var(--muted)">支付时间</td><td>${b.paid_at.replace("T"," ").slice(0,19)}</td></tr>`:""}
+        ${b.paid_at?`<tr><td style="color:var(--muted)">支付时间</td><td class="mono" style="font-size:.78rem">${fmtDT(b.paid_at)}</td></tr>`:""}
       </table>
       <div class="modal-acts">
         <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
@@ -1268,12 +1286,55 @@ async function refreshPiles() {
     }
 
     return `<div class="pile-card ${cardCls}">
-      <div class="pile-top"><span class="pile-code">${p.pileCode}</span><span class="badge ${stC}">${stL}</span></div>
+      <div class="pile-top">
+        <span class="pile-code">${p.pileCode}</span>
+        <span class="badge ${stC}">${stL}</span>
+      </div>
       <div class="pile-mode">${p.mode==="fast"?"⚡ 快充":"🐢 慢充"} · ${p.powerKw} kW · 队列 ${p.queueLength}/${p.queueCapacity}</div>
       ${prog}
-      <div class="pile-foot"><span>累计 <strong>${p.totalSessions}</strong> 次</span><span><strong>${p.totalChargedKwh}</strong> kWh</span><span>¥<strong>${p.totalRevenue}</strong></span></div>
+      <div class="pile-foot"><span>累计 <strong>${p.totalSessions}</strong> 次</span><span><strong>${(p.totalChargingHours||0).toFixed(2)}</strong> h</span><span><strong>${p.totalChargedKwh}</strong> kWh</span><span>¥<strong>${p.totalRevenue}</strong></span></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="showPileQueue(${p.pileId},'${p.pileCode}')">📋 查看排队车辆 (${p.queueLength})</button>
     </div>`;
   }).join("");
+}
+
+// ── UC_08b 查看桩排队车辆（spec §5.3 必需字段：用户ID/电池容量/请求量/排队时长）──
+async function showPileQueue(pileId, pileCode) {
+  try {
+    const r = await api(`/api/admin/piles/${pileId}/queue`);
+    const stMap = {
+      charging:    ["badge-success",  "充电中"],
+      queuing_pile:["badge-info",     "桩排队"],
+      dispatched:  ["badge-warning",  "已叫号"],
+    };
+    let rows;
+    if (!r.vehicles.length) {
+      rows = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">🅿️</div><p>当前桩无排队车辆</p></div></td></tr>`;
+    } else {
+      rows = r.vehicles.map((v,i) => {
+        const [bc, bl] = stMap[v.status] || ["badge-neutral", v.status];
+        return `<tr>
+          <td><strong>${i+1}</strong></td>
+          <td><span class="mono">U#${v.userId}</span> · <code class="mono">${v.queueNumber}</code></td>
+          <td>${v.licensePlate}</td>
+          <td class="mono">${v.batteryCapacityKwh.toFixed(1)} kWh</td>
+          <td class="mono">${v.requestedAmountKwh.toFixed(2)} kWh</td>
+          <td class="mono">${v.queueDurationMinutes.toFixed(1)} 分钟</td>
+        </tr><tr><td colspan="6" style="padding:0 0 6px 0"><span class="badge ${bc}" style="font-size:.68rem">${bl}</span></td></tr>`;
+      }).join("");
+    }
+    showModal(`
+      <h4>充电桩 ${pileCode} · 排队车辆信息</h4>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">字段含义：用户ID / 车辆 / 电池总容量 / 请求充电量 / 排队时长（spec §5.3）</div>
+      <div class="tbl-wrap" style="max-height:360px;overflow:auto">
+        <table style="width:100%;font-size:.82rem">
+          <thead><tr><th>位次</th><th>用户/排队号</th><th>车辆</th><th>电池容量</th><th>请求充电量</th><th>排队时长</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">关闭</button></div>
+    `);
+  } catch(e) { toast("查询失败："+e.message, false); }
 }
 
 // ── Abnormal reports ──────────────────────────────────────────
@@ -1323,6 +1384,31 @@ async function resumePile() {
 }
 
 // ── UC_11 Ops Report + Visualization ──────────────────────────
+// 时间维度快捷切换 —— spec §5.3 要求"日/周/月"
+function setReportPeriod(period) {
+  const now = new Date();
+  const ymd = (d) => d.toISOString().slice(0,10);
+  let from, to = ymd(now);
+  if (period === "day") {
+    from = to;
+  } else if (period === "week") {
+    const dow = now.getDay() || 7;          // ISO 周一为 1
+    const start = new Date(now); start.setDate(now.getDate() - dow + 1);
+    from = ymd(start);
+  } else if (period === "month") {
+    from = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  } else {
+    // 全部：清空
+    document.getElementById("rep-from").value = "";
+    document.getElementById("rep-to").value = "";
+    refreshReport();
+    return;
+  }
+  document.getElementById("rep-from").value = from;
+  document.getElementById("rep-to").value = to;
+  refreshReport();
+}
+
 async function refreshReport() {
   const f = document.getElementById("rep-from").value;
   const t = document.getElementById("rep-to").value;
@@ -1333,7 +1419,49 @@ async function refreshReport() {
     const r = await api("/api/admin/reports?"+q);
     document.getElementById("report-out").textContent = JSON.stringify(r, null, 2);
 
-    // CSS-only data bars for piles breakdown
+    // ── 按桩明细表 —— spec §5.3 必需字段（时间/桩号/累计次数/累计时长/累计电量/充电费/服务费/总费用）──
+    let tbl = `<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;color:var(--ink-light)">按桩明细 · 时段 ${f||"—"} ~ ${t||"—"}</div>
+      <div class="tbl-wrap" style="overflow:auto"><table style="width:100%;font-size:.78rem">
+        <thead><tr>
+          <th>充电桩</th><th>模式</th>
+          <th>累计次数</th><th>累计时长 (h)</th><th>累计电量 (kWh)</th>
+          <th>充电费</th><th>服务费</th><th>总费用</th><th>故障</th>
+        </tr></thead><tbody>`;
+    let sumDuration = 0, sumKwh = 0, sumCharge = 0, sumService = 0, sumTotal = 0, sumSessions = 0, sumFaults = 0;
+    (r.pilesBreakdown || []).forEach(p => {
+      sumSessions += p.sessions||0;
+      sumDuration += p.chargingDurationHours||0;
+      sumKwh += p.chargedKwh||0;
+      sumCharge += p.chargingFee||0;
+      sumService += p.serviceFee||0;
+      sumTotal += p.revenue||0;
+      sumFaults += p.faults||0;
+      tbl += `<tr>
+        <td><strong>${p.pileCode}</strong></td>
+        <td>${p.mode==="fast"?"⚡ 快充":"🐢 慢充"}</td>
+        <td class="mono">${p.sessions||0}</td>
+        <td class="mono">${(p.chargingDurationHours||0).toFixed(2)}</td>
+        <td class="mono">${(p.chargedKwh||0).toFixed(2)}</td>
+        <td class="mono">¥${(p.chargingFee||0).toFixed(2)}</td>
+        <td class="mono">¥${(p.serviceFee||0).toFixed(2)}</td>
+        <td class="mono"><strong>¥${(p.revenue||0).toFixed(2)}</strong></td>
+        <td class="mono" style="color:${p.faults?'var(--err)':'var(--muted)'}">${p.faults||0}</td>
+      </tr>`;
+    });
+    tbl += `<tr style="background:var(--electric-glow);font-weight:700">
+      <td colspan="2">累计</td>
+      <td class="mono">${sumSessions}</td>
+      <td class="mono">${sumDuration.toFixed(2)}</td>
+      <td class="mono">${sumKwh.toFixed(2)}</td>
+      <td class="mono">¥${sumCharge.toFixed(2)}</td>
+      <td class="mono">¥${sumService.toFixed(2)}</td>
+      <td class="mono">¥${sumTotal.toFixed(2)}</td>
+      <td class="mono">${sumFaults}</td>
+    </tr>`;
+    tbl += `</tbody></table></div>`;
+    document.getElementById("report-table").innerHTML = tbl;
+
+    // ── 柱状图 ──
     let viz = "";
     if (r.pilesBreakdown && r.pilesBreakdown.length) {
       const maxKwh = Math.max(...r.pilesBreakdown.map(p => p.chargedKwh||0), 1);
@@ -1355,7 +1483,6 @@ async function refreshReport() {
       });
       viz += `</div>`;
     }
-    // Summary
     viz += `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:.8rem;color:var(--ink-light)">
       <span>总会话: <strong class="mono">${r.totalSessions}</strong></span>
       <span>已支付: <strong class="mono" style="color:var(--ok)">${r.paidBills}</strong></span>

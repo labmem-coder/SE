@@ -177,6 +177,7 @@ class PileStatusEntry(BaseModel):
     queueCapacity: int
     totalSessions: int
     totalChargedKwh: float
+    totalChargingHours: float = 0.0               # 系统启动以来累计充电时长(小时) —— spec §5.3
     totalRevenue: float
 
 

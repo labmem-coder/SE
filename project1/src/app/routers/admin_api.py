@@ -93,6 +93,19 @@ def query_pile_status(
             progress = round(active_session.charged_kwh, 3)
             target = active_session.target_kwh
 
+        # 累计充电时长（小时）—— 已结束的会话精确 ended-started，进行中的按已充进度估算
+        total_h = 0.0
+        all_sessions = (
+            db.query(ChargingSession)
+            .filter(ChargingSession.pile_id == pile.id)
+            .all()
+        )
+        for s in all_sessions:
+            if s.ended_at and s.started_at:
+                total_h += (s.ended_at - s.started_at).total_seconds() / 3600.0
+            elif s.power_kw > 0:
+                total_h += s.charged_kwh / s.power_kw
+
         entries.append(
             PileStatusEntry(
                 pileId=pile.id,
@@ -108,6 +121,7 @@ def query_pile_status(
                 queueCapacity=pile.queue_capacity,
                 totalSessions=pile.total_sessions,
                 totalChargedKwh=round(pile.total_charged_kwh, 3),
+                totalChargingHours=round(total_h, 3),
                 totalRevenue=round(pile.total_revenue, 2),
             )
         )
