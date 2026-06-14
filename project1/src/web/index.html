@@ -181,28 +181,31 @@
   /* ── login role tabs ── */
   .login-tabs {
     display: flex;
-    gap: 0;
+    gap: 14px;
+    justify-content: center;
     margin: 8px 0 18px;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    border: 1.5px solid var(--line);
   }
   .login-tab-btn {
-    flex: 1;
+    width: 180px;
     padding: 9px 0;
     font-family: var(--font-ui);
     font-size: .88rem;
     font-weight: 600;
-    border: none;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--muted);
     cursor: pointer;
     transition: all .2s;
   }
-  .login-tab-btn:first-child { border-right: 1.5px solid var(--line); }
   .login-tab-btn.active {
     background: var(--electric);
     color: #fff;
+    border-color: var(--electric);
+  }
+  .login-tab-btn:hover:not(.active) {
+    border-color: var(--electric-bright);
+    color: var(--electric-dim);
   }
   /* ── login form fields ── */
   .login-form { text-align: left; }
@@ -233,6 +236,66 @@
     transition: background .18s;
   }
   .login-form .btn-login:hover { background: #1e3a8a; }
+
+  /* ── user panel tab buttons ── */
+  .user-tabs {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .user-tab-btn {
+    width: 220px;
+    padding: 11px 0;
+    font-family: var(--font-ui);
+    font-size: .92rem;
+    font-weight: 600;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .user-tab-btn.active {
+    background: var(--electric);
+    color: #fff;
+    border-color: var(--electric);
+  }
+  .user-tab-btn:hover:not(.active) {
+    background: var(--electric-glow);
+    border-color: var(--electric-bright);
+  }
+
+  /* ── admin panel tab buttons ── */
+  .admin-tabs {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .admin-tab-btn {
+    width: 200px;
+    padding: 11px 0;
+    font-family: var(--font-ui);
+    font-size: .92rem;
+    font-weight: 600;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .admin-tab-btn.active {
+    background: var(--electric);
+    color: #fff;
+    border-color: var(--electric);
+  }
+  .admin-tab-btn:hover:not(.active) {
+    background: var(--electric-glow);
+    border-color: var(--electric-bright);
+  }
   .quick-accounts {
     margin-top: 14px;
     display: flex;
@@ -687,113 +750,142 @@
        ═══════════════════════════════════════════ -->
   <div class="hidden" id="user-panel" role="tabpanel">
 
-    <div class="user-cols">
+    <!-- Tab buttons -->
+    <div class="user-tabs">
+      <button class="user-tab-btn active" id="tab-charge" onclick="switchUserTab('charge')">🚗 车辆充电管理</button>
+      <button class="user-tab-btn" id="tab-bills" onclick="switchUserTab('bills')">💰 我的账单</button>
+    </div>
 
-      <!-- ═══════════ LEFT COLUMN ═══════════ -->
-      <div style="display:flex;flex-direction:column;gap:20px">
+    <!-- ═══════════ Tab: 车辆充电管理 ═══════════ -->
+    <div id="user-tab-charge" style="display:flex;flex-direction:column;gap:20px">
 
-        <!-- UC_01  Submit -->
-        <section class="card" aria-labelledby="uc01-title">
-          <div class="card-head"><h3 id="uc01-title">📝 提交充电申请</h3></div>
-          <div class="card-body">
-            <div class="form-row">
-              <div class="fg" style="max-width:200px">
-                <label for="sub-vehicle">车辆</label>
-                <select id="sub-vehicle"></select>
-              </div>
-              <div class="fg" style="max-width:150px">
-                <label for="sub-mode">充电模式</label>
-                <select id="sub-mode">
-                  <option value="fast">快充 30kW</option>
-                  <option value="slow">慢充 7kW</option>
-                </select>
-              </div>
-              <div class="fg" style="max-width:140px">
-                <label for="sub-target">目标电量 kWh</label>
-                <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
-              </div>
-              <div class="fg" style="max-width:180px">
-                <label for="sub-token">入场凭证</label>
-                <input id="sub-token" value="ENTRY-TOKEN-DEMO">
-              </div>
-              <button class="btn btn-pri" onclick="submitRequest()" style="align-self:flex-end">提交请求</button>
+      <!-- UC_01  Submit -->
+      <section class="card" aria-labelledby="uc01-title">
+        <div class="card-head"><h3 id="uc01-title">📝 提交充电申请</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="fg" style="max-width:200px">
+              <label for="sub-vehicle">选择车辆</label>
+              <select id="sub-vehicle" onchange="onVehicleSelectChange()">
+                <option value="">-- 选择车辆 --</option>
+                <option value="__new__">➕ 新增车辆...</option>
+              </select>
             </div>
-          </div>
-        </section>
-
-        <!-- UC_02–05  My Requests -->
-        <section class="card" aria-labelledby="myreq-title">
-          <div class="card-head">
-            <h3 id="myreq-title">📋 我的充电申请</h3>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span class="inline-stat" id="req-stat">暂无记录</span>
-              <span class="refresh-indicator"><span class="ri-dot" id="user-ri-dot"></span><span id="user-ri-label">5s 后刷新</span></span>
-              <button class="btn btn-ghost btn-sm" onclick="refreshMyRequests()" aria-label="刷新请求列表">🔄</button>
+            <div class="fg" style="max-width:170px" id="fg-new-plate" hidden>
+              <label for="sub-new-plate">新车牌号</label>
+              <input id="sub-new-plate" placeholder="例如：京B·EV005">
             </div>
-          </div>
-          <div class="card-body flat">
-            <div class="tbl-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>排队号</th><th>请求编号</th><th>状态</th><th>模式</th>
-                    <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="tb-myreq"></tbody>
-              </table>
+            <div class="fg" style="max-width:130px" id="fg-new-battery" hidden>
+              <label for="sub-new-battery">电池容量 kWh</label>
+              <input id="sub-new-battery" type="number" min="1" step="0.1" value="60">
             </div>
-          </div>
-        </section>
-
-      </div>
-
-      <!-- ═══════════ RIGHT COLUMN ═══════════ -->
-      <div style="display:flex;flex-direction:column;gap:20px">
-
-        <!-- UC_06  Report Abnormal -->
-        <section class="card" aria-labelledby="uc06-title">
-          <div class="card-head"><h3 id="uc06-title">⚠️ 上报异常设备</h3></div>
-          <div class="card-body">
-            <div class="form-row">
-              <div class="fg" style="max-width:220px">
-                <label for="rep-pile">充电桩</label>
-                <select id="rep-pile"></select>
-              </div>
-              <div class="fg" style="flex:2;min-width:220px">
-                <label for="rep-desc">问题描述</label>
-                <input id="rep-desc" placeholder="例如：充电过程中突然停止">
-              </div>
-              <button class="btn btn-out" onclick="reportAbnormal()" style="align-self:flex-end">提交上报</button>
+            <div class="fg" style="max-width:150px">
+              <label for="sub-mode">充电模式</label>
+              <select id="sub-mode">
+                <option value="fast">快充 30kW</option>
+                <option value="slow">慢充 7kW</option>
+              </select>
             </div>
-          </div>
-        </section>
-
-        <!-- UC_07  My Bills -->
-        <section class="card" aria-labelledby="bills-title">
-          <div class="card-head">
-            <h3 id="bills-title">💰 我的账单</h3>
-            <div style="display:flex;align-items:center;gap:10px">
-              <span class="inline-stat" id="bill-stat">暂无记录</span>
-              <button class="btn btn-ghost btn-sm" onclick="refreshMyBills()" aria-label="刷新账单">🔄</button>
+            <div class="fg" style="max-width:140px">
+              <label for="sub-target">目标电量 kWh</label>
+              <input id="sub-target" type="number" min="0.1" step="0.1" value="15">
             </div>
-          </div>
-          <div class="card-body flat">
-            <div class="tbl-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>账单编号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
-                    <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="tb-bills"></tbody>
-              </table>
+            <div class="fg" style="max-width:180px">
+              <label for="sub-token">入场凭证</label>
+              <input id="sub-token" value="ENTRY-TOKEN-DEMO">
             </div>
+            <button class="btn btn-pri" onclick="submitRequest()" style="align-self:flex-end">提交请求</button>
           </div>
-        </section>
+        </div>
+      </section>
 
-      </div>
+      <!-- 我的车辆 -->
+      <section class="card" aria-labelledby="vehicles-title">
+        <div class="card-head">
+          <h3 id="vehicles-title">🚗 我的车辆</h3>
+          <button class="btn btn-pri btn-sm" onclick="openAddVehicle()">➕ 添加车辆</button>
+        </div>
+        <div class="card-body flat">
+          <div class="tbl-scroll" style="max-height:200px">
+            <table>
+              <thead><tr><th>ID</th><th>车牌号</th><th>电池容量</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="tb-vehicles"><tr><td colspan="5"><div class="empty"><div class="empty-icon">🚙</div><p>加载中...</p></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- UC_06  Report Abnormal -->
+      <section class="card" aria-labelledby="uc06-title">
+        <div class="card-head"><h3 id="uc06-title">⚠️ 上报异常设备</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="fg" style="max-width:220px">
+              <label for="rep-pile">充电桩</label>
+              <select id="rep-pile"></select>
+            </div>
+            <div class="fg" style="flex:2;min-width:220px">
+              <label for="rep-desc">问题描述</label>
+              <input id="rep-desc" placeholder="例如：充电过程中突然停止">
+            </div>
+            <button class="btn btn-out" onclick="reportAbnormal()" style="align-self:flex-end">提交上报</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- UC_02–05  My Requests -->
+      <section class="card" aria-labelledby="myreq-title">
+        <div class="card-head">
+          <h3 id="myreq-title">📋 我的充电申请</h3>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="inline-stat" id="req-stat">暂无记录</span>
+            <span class="refresh-indicator"><span class="ri-dot" id="user-ri-dot"></span><span id="user-ri-label">5s 后刷新</span></span>
+            <button class="btn btn-ghost btn-sm" onclick="refreshMyRequests()" aria-label="刷新请求列表">🔄</button>
+          </div>
+        </div>
+        <div class="card-body flat">
+          <div class="tbl-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>排队号</th><th>请求编号</th><th>车牌号</th><th>状态</th><th>模式</th><th>请求电量</th>
+                  <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="tb-myreq"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ═══════════ Tab: 我的账单 ═══════════ -->
+    <div id="user-tab-bills" class="hidden" style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- UC_07  My Bills -->
+      <section class="card" aria-labelledby="bills-title">
+        <div class="card-head">
+          <h3 id="bills-title">💰 我的账单</h3>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="inline-stat" id="bill-stat">暂无记录</span>
+            <button class="btn btn-ghost btn-sm" onclick="refreshMyBills()" aria-label="刷新账单">🔄</button>
+          </div>
+        </div>
+        <div class="card-body flat">
+          <div class="tbl-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>账单编号</th><th>充电 kWh</th><th>充电费</th><th>服务费</th>
+                  <th>总金额</th><th>状态</th><th>生成时间</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="tb-bills"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
     </div>
   </div>
@@ -803,89 +895,118 @@
        ═══════════════════════════════════════════ -->
   <div class="hidden" id="admin-panel" role="tabpanel">
 
-    <!-- UC_08  Pile Status -->
-    <section class="card" aria-labelledby="uc08-title">
-      <div class="card-head">
-        <h3 id="uc08-title">🔋 充电桩实时状态 · UC_08</h3>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="refresh-indicator"><span class="ri-dot" id="admin-ri-dot"></span><span id="admin-ri-label">5s 后刷新</span></span>
-          <button class="btn btn-ghost btn-sm" onclick="refreshPiles()" aria-label="刷新桩状态">🔄</button>
-        </div>
-      </div>
-      <div class="card-body">
-        <!-- UC_08 inline stats -->
-        <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem" id="pile-stats"></div>
-        <!-- Waiting queue summary -->
-        <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap" id="queue-summary"></div>
-        <div class="pile-grid" id="pile-grid"></div>
-      </div>
-    </section>
+    <!-- Tab buttons -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" id="tab-piles" onclick="switchAdminTab('piles')">🔋 充电桩管理</button>
+      <button class="admin-tab-btn" id="tab-sched" onclick="switchAdminTab('sched')">⚙️ 调度策略</button>
+      <button class="admin-tab-btn" id="tab-report" onclick="switchAdminTab('report')">📊 运营报表</button>
+    </div>
 
-    <!-- UC_09/10  Fault + Reports  (two-column) -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" class="admin-cols">
-      <section class="card" aria-labelledby="fault-title">
-        <div class="card-head"><h3 id="fault-title">🔧 故障管理 · UC_09 / 10</h3></div>
-        <div class="card-body">
-          <div class="form-row mb-1">
-            <div class="fg" style="max-width:200px">
-              <label for="flt-pile">充电桩</label>
-              <select id="flt-pile"></select>
+    <!-- ═══════════ Tab: 充电桩管理 ═══════════ -->
+    <div id="admin-tab-piles" style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- UC_09/10  Fault + Reports  (two-column) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" class="admin-cols">
+        <section class="card" aria-labelledby="fault-title">
+          <div class="card-head"><h3 id="fault-title">🔧 故障管理 · UC_09 / 10</h3></div>
+          <div class="card-body">
+            <div class="form-row mb-1">
+              <div class="fg" style="max-width:200px">
+                <label for="flt-pile">充电桩</label>
+                <select id="flt-pile"></select>
+              </div>
+              <div class="fg" style="max-width:160px">
+                <label for="flt-type">故障类型</label>
+                <input id="flt-type" value="供电故障">
+              </div>
+              <button class="btn btn-danger" onclick="confirmFault()" style="align-self:flex-end;margin-left:auto">确认故障</button>
+              <button class="btn btn-out" onclick="resumePile()" style="align-self:flex-end">恢复桩</button>
             </div>
-            <div class="fg" style="max-width:160px">
-              <label for="flt-type">故障类型</label>
-              <input id="flt-type" value="供电故障">
-            </div>
-            <button class="btn btn-danger" onclick="confirmFault()" style="align-self:flex-end;margin-left:auto">确认故障</button>
-            <button class="btn btn-out" onclick="resumePile()" style="align-self:flex-end">恢复桩</button>
           </div>
+        </section>
+
+        <section class="card" aria-labelledby="reports-title">
+          <div class="card-head">
+            <h3 id="reports-title">📢 未处理异常上报</h3>
+            <button class="btn btn-ghost btn-sm" onclick="loadAbnormalReports()" aria-label="刷新异常上报">🔄</button>
+          </div>
+          <div class="card-body flat">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>桩</th><th>用户</th><th>描述</th><th>时间</th><th>操作</th></tr></thead>
+                <tbody id="tb-reports"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- UC_08  Pile Status  (moved to bottom) -->
+      <section class="card" aria-labelledby="uc08-title">
+        <div class="card-head">
+          <h3 id="uc08-title">🔋 充电桩实时状态 · UC_08</h3>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="refresh-indicator"><span class="ri-dot" id="admin-ri-dot"></span><span id="admin-ri-label">5s 后刷新</span></span>
+            <button class="btn btn-ghost btn-sm" onclick="refreshPiles()" aria-label="刷新桩状态">🔄</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- UC_08 inline stats -->
+          <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem" id="pile-stats"></div>
+          <!-- Waiting queue summary -->
+          <div class="mb-2" style="display:flex;gap:16px;flex-wrap:wrap" id="queue-summary"></div>
+          <div class="pile-grid" id="pile-grid"></div>
         </div>
       </section>
 
-      <section class="card" aria-labelledby="reports-title">
-        <div class="card-head">
-          <h3 id="reports-title">📢 未处理异常上报</h3>
-          <button class="btn btn-ghost btn-sm" onclick="loadAbnormalReports()" aria-label="刷新异常上报">🔄</button>
-        </div>
-        <div class="card-body flat">
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>ID</th><th>桩</th><th>用户</th><th>描述</th><th>时间</th><th>操作</th></tr></thead>
-              <tbody id="tb-reports"></tbody>
-            </table>
+    </div>
+
+    <!-- ═══════════ Tab: 调度策略 ═══════════ -->
+    <div id="admin-tab-sched" class="hidden" style="display:flex;flex-direction:column;gap:20px">
+      <section class="card">
+        <div class="card-body">
+          <div class="empty">
+            <div class="empty-icon">⚙️</div>
+            <p>调度策略配置功能开发中…</p>
           </div>
         </div>
       </section>
     </div>
 
-    <!-- UC_11  Ops Report -->
-    <section class="card" aria-labelledby="uc11-title">
-      <div class="card-head"><h3 id="uc11-title">📊 运营报表 · UC_11</h3></div>
-      <div class="card-body">
-        <!-- 时间维度快捷切换 —— spec §5.3 要求"日/周/月" -->
-        <div class="form-row mb-2" style="gap:8px;flex-wrap:wrap">
-          <span style="font-size:.78rem;color:var(--muted);align-self:center">时间维度：</span>
-          <button class="btn btn-out btn-sm" onclick="setReportPeriod('day')">📅 今日</button>
-          <button class="btn btn-out btn-sm" onclick="setReportPeriod('week')">🗓️ 本周</button>
-          <button class="btn btn-out btn-sm" onclick="setReportPeriod('month')">📆 本月</button>
-          <button class="btn btn-out btn-sm" onclick="setReportPeriod('all')">∞ 全部</button>
-        </div>
-        <div class="form-row mb-2">
-          <div class="fg" style="max-width:170px">
-            <label for="rep-from">开始日期</label>
-            <input id="rep-from" type="date">
+    <!-- ═══════════ Tab: 运营报表 ═══════════ -->
+    <div id="admin-tab-report" class="hidden" style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- UC_11  Ops Report -->
+      <section class="card" aria-labelledby="uc11-title">
+        <div class="card-head"><h3 id="uc11-title">📊 运营报表 · UC_11</h3></div>
+        <div class="card-body">
+          <!-- 时间维度快捷切换 —— spec §5.3 要求"日/周/月" -->
+          <div class="form-row mb-2" style="gap:8px;flex-wrap:wrap">
+            <span style="font-size:.78rem;color:var(--muted);align-self:center">时间维度：</span>
+            <button class="btn btn-out btn-sm" onclick="setReportPeriod('day')">📅 今日</button>
+            <button class="btn btn-out btn-sm" onclick="setReportPeriod('week')">🗓️ 本周</button>
+            <button class="btn btn-out btn-sm" onclick="setReportPeriod('month')">📆 本月</button>
+            <button class="btn btn-out btn-sm" onclick="setReportPeriod('all')">∞ 全部</button>
           </div>
-          <div class="fg" style="max-width:170px">
-            <label for="rep-to">结束日期</label>
-            <input id="rep-to" type="date">
+          <div class="form-row mb-2">
+            <div class="fg" style="max-width:170px">
+              <label for="rep-from">开始日期</label>
+              <input id="rep-from" type="date">
+            </div>
+            <div class="fg" style="max-width:170px">
+              <label for="rep-to">结束日期</label>
+              <input id="rep-to" type="date">
+            </div>
+            <button class="btn btn-pri" onclick="refreshReport()" style="align-self:flex-end">查询报表</button>
           </div>
-          <button class="btn btn-pri" onclick="refreshReport()" style="align-self:flex-end">查询报表</button>
+          <!-- 按桩明细表 —— spec §5.3 必需字段 -->
+          <div id="report-table" class="mb-2"></div>
+          <div id="report-visual" class="mb-2"></div>
+          <pre id="report-out" style="background:#0f172a;color:#94a3b8;padding:14px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.72rem;overflow:auto;max-height:200px">点击"查询报表"查看运营数据与可视化。</pre>
         </div>
-        <!-- 按桩明细表 —— spec §5.3 必需字段 -->
-        <div id="report-table" class="mb-2"></div>
-        <div id="report-visual" class="mb-2"></div>
-        <pre id="report-out" style="background:#0f172a;color:#94a3b8;padding:14px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:.72rem;overflow:auto;max-height:200px">点击"查询报表"查看运营数据与可视化。</pre>
-      </div>
-    </section>
+      </section>
+
+    </div>
   </div>
 
 </main>
@@ -1018,17 +1139,19 @@ async function doLogin() {
       const now = new Date();
       document.getElementById("rep-from").value = new Date(now-7*86400000).toISOString().slice(0,10);
       document.getElementById("rep-to").value   = now.toISOString().slice(0,10);
+      switchAdminTab('piles');
       startTick(() => { refreshPiles().catch(()=>{}); });
     } else {
       document.getElementById("user-panel").classList.remove("hidden");
       document.getElementById("admin-panel").classList.add("hidden");
       const me = await api("/api/me");
-      VEHICLES = me.vehicles;
-      document.getElementById("sub-vehicle").innerHTML =
-        VEHICLES.map(v => `<option value="${v.id}">${v.license_plate}</option>`).join("");
+      VEHICLES = me.vehicles || [];
+      populateVehicleDropdown();
+      await refreshVehicles();
       await loadPileSelects();
       await refreshMyRequests();
       await refreshMyBills();
+      switchUserTab('charge');
       startTick(() => { refreshMyRequests().catch(()=>{}); refreshMyBills().catch(()=>{}); });
     }
     toast("登录成功");
@@ -1069,15 +1192,157 @@ const STATUS_MAP = {
 function statBadge(s) { const [c,l]=STATUS_MAP[s]||["badge-neutral",s]; return `<span class="badge ${c}">${l}</span>`; }
 function billBadge(s) { return s==="paid"?'<span class="badge badge-success">已支付</span>':'<span class="badge badge-warning">待支付</span>'; }
 
+// ── Admin Tab Switching ────────────────────────────────────
+function switchAdminTab(tab) {
+  const tabs = {
+    piles: {btn: document.getElementById("tab-piles"), div: document.getElementById("admin-tab-piles")},
+    sched: {btn: document.getElementById("tab-sched"), div: document.getElementById("admin-tab-sched")},
+    report: {btn: document.getElementById("tab-report"), div: document.getElementById("admin-tab-report")},
+  };
+  Object.entries(tabs).forEach(([key, {btn, div}]) => {
+    if (key === tab) {
+      btn.classList.add("active");
+      div.classList.remove("hidden");
+      div.style.display = "flex";
+    } else {
+      btn.classList.remove("active");
+      div.classList.add("hidden");
+    }
+  });
+}
+
+// ── User Tab Switching ────────────────────────────────────
+function switchUserTab(tab) {
+  const btnCharge = document.getElementById("tab-charge");
+  const btnBills = document.getElementById("tab-bills");
+  const divCharge = document.getElementById("user-tab-charge");
+  const divBills = document.getElementById("user-tab-bills");
+
+  if (tab === "charge") {
+    btnCharge.classList.add("active");
+    btnBills.classList.remove("active");
+    divCharge.classList.remove("hidden");
+    divCharge.style.display = "flex";
+    divBills.classList.add("hidden");
+  } else {
+    btnBills.classList.add("active");
+    btnCharge.classList.remove("active");
+    divBills.classList.remove("hidden");
+    divBills.style.display = "flex";
+    divCharge.classList.add("hidden");
+  }
+}
+
+// ── Vehicle Management ─────────────────────────────────────
+function populateVehicleDropdown() {
+  const sel = document.getElementById("sub-vehicle");
+  sel.innerHTML = '<option value="">-- 选择车辆 --</option>' +
+    VEHICLES.map(v => `<option value="${v.id}">${v.license_plate} (${v.battery_capacity_kwh||60}kWh)</option>`).join("") +
+    '<option value="__new__">➕ 新增车辆...</option>';
+}
+
+function onVehicleSelectChange() {
+  const sel = document.getElementById("sub-vehicle").value;
+  document.getElementById("fg-new-plate").hidden = (sel !== "__new__");
+  document.getElementById("fg-new-battery").hidden = (sel !== "__new__");
+}
+
+async function refreshVehicles() {
+  try {
+    VEHICLES = await api("/api/vehicles");
+    populateVehicleDropdown();
+    const tb = document.getElementById("tb-vehicles");
+    if (!VEHICLES.length) {
+      tb.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">🚙</div><p>暂无车辆，请添加</p></div></td></tr>`;
+    } else {
+      // check active requests to determine vehicle status
+      let activeVehicleIds = new Set();
+      try {
+        const reqs = await api("/api/me/requests");
+        reqs.forEach(r => {
+          if (["waiting","fault_queued","dispatched","queuing_pile","charging"].includes(r.status)) {
+            activeVehicleIds.add(r.vehicleId);
+          }
+        });
+      } catch(e) {}
+      tb.innerHTML = VEHICLES.map(v => {
+        const inUse = activeVehicleIds.has(v.id);
+        const statusHtml = inUse
+          ? '<span class="badge badge-warning">充电中</span>'
+          : '<span class="badge badge-success">空闲</span>';
+        const delBtn = inUse
+          ? '<button class="btn btn-ghost btn-sm" disabled title="有进行中的充电请求">删除</button>'
+          : `<button class="btn btn-danger btn-sm" onclick="deleteVehicle(${v.id})">删除</button>`;
+        return `<tr>
+          <td class="mono">${v.id}</td>
+          <td><strong>${v.license_plate}</strong></td>
+          <td class="mono">${(v.battery_capacity_kwh||60).toFixed(0)} kWh</td>
+          <td>${statusHtml}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+      }).join("");
+    }
+  } catch(e) { console.error("refreshVehicles", e); }
+}
+
+function openAddVehicle() {
+  showModal(`
+    <h4>添加车辆</h4>
+    <div class="field"><label for="add-plate">车牌号</label><input id="add-plate" placeholder="例如：京B·EV005" maxlength="20"></div>
+    <div class="field"><label for="add-battery">电池容量 (kWh)</label><input id="add-battery" type="number" min="1" step="0.1" value="60"></div>
+    <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-pri" id="add-veh-go">确认</button></div>
+  `, () => {
+    const inp = document.getElementById("add-plate");
+    inp.focus();
+    document.getElementById("add-veh-go").onclick = () => doAddVehicle();
+    inp.addEventListener("keydown", e => { if(e.key==="Enter") doAddVehicle(); });
+  });
+}
+
+async function doAddVehicle() {
+  const plate = document.getElementById("add-plate").value.trim();
+  const battery = parseFloat(document.getElementById("add-battery").value) || 60;
+  if (!plate) { toast("请输入车牌号", false); return; }
+  try {
+    await api("/api/vehicles", {method:"POST", body:JSON.stringify({license_plate: plate, battery_capacity_kwh: battery})});
+    toast("车辆已添加");
+    closeModal();
+    await refreshVehicles();
+  } catch(e) { toast("添加失败："+e.message, false); }
+}
+
+async function deleteVehicle(id) {
+  showConfirm("确定删除此车辆吗？", "删除后不可恢复（仅无进行中充电的车辆可删除）。", async () => {
+    try {
+      await api(`/api/vehicles/${id}`, {method:"DELETE"});
+      toast("车辆已删除");
+      await refreshVehicles();
+    } catch(e) { toast("删除失败："+e.message, false); }
+  });
+}
+
 // ── UC_01 Submit ───────────────────────────────────────────────
 async function submitRequest() {
-  const vehicleId = +document.getElementById("sub-vehicle").value;
+  const sel = document.getElementById("sub-vehicle").value;
   const mode = document.getElementById("sub-mode").value;
   const targetAmount = parseFloat(document.getElementById("sub-target").value);
   const entryToken = document.getElementById("sub-token").value.trim();
   if (!targetAmount||targetAmount<=0) { toast("请输入有效的目标电量",false); return; }
+
+  const body = { mode, targetAmount, entryToken };
+  if (sel === "__new__") {
+    const plate = document.getElementById("sub-new-plate").value.trim();
+    if (!plate) { toast("请输入新车牌号", false); return; }
+    body.licensePlate = plate;
+    body.batteryCapacity = parseFloat(document.getElementById("sub-new-battery").value) || 60;
+  } else if (sel) {
+    body.vehicleId = +sel;
+  } else {
+    toast("请选择车辆或新增车辆", false); return;
+  }
+
   try {
-    const r = await api("/api/requests", {method:"POST", body:JSON.stringify({vehicleId,mode,targetAmount,entryToken})});
+    const r = await api("/api/requests", {method:"POST", body:JSON.stringify(body)});
     toast("已受理：" + r.queueInfo.queueNumber);
     await refreshMyRequests();
   } catch(e) { toast("提交失败："+e.message,false); }
@@ -1088,7 +1353,7 @@ async function refreshMyRequests() {
   const rows = await api("/api/me/requests");
   const tb = document.getElementById("tb-myreq");
   if (!rows.length) {
-    tb.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📭</div><p>暂无充电请求</p></div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="empty-icon">📭</div><p>暂无充电请求</p></div></td></tr>`;
   } else {
     tb.innerHTML = rows.map(r => {
       const acts = [];
@@ -1101,8 +1366,10 @@ async function refreshMyRequests() {
       return `<tr>
         <td><strong>${r.queueNumber}</strong></td>
         <td><code class="mono" style="font-size:.72rem;color:var(--muted)">${r.requestCode}</code></td>
+        <td><strong>${r.licensePlate||"—"}</strong></td>
         <td>${statBadge(r.status)}</td>
         <td>${r.mode==="fast"?"⚡快充":"🐢慢充"}</td>
+        <td class="mono">${(r.targetAmount||0).toFixed(1)} kWh</td>
         <td>${r.waitingPosition??"—"}</td>
         <td>${r.estimatedWaitMinutes!=null?r.estimatedWaitMinutes+" min":"—"}</td>
         <td>${r.assignedPileCode?`<strong>${r.assignedPileCode}</strong> / 位${r.pileQueuePosition??"—"}`:"—"}</td>

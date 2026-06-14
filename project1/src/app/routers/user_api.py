@@ -57,6 +57,8 @@ from ..schemas import (
     UpdateChargeRequestIn,
     UpdateChargeRequestOut,
     UserOut,
+    VehicleCreate,
+    VehicleOut,
 )
 from ..views import build_queue_info
 
@@ -70,13 +72,13 @@ router = APIRouter(prefix="/api", tags=["user"])
 
 
 def _make_request_code() -> str:
-    return f"{REQUEST_CODE_PREFIX}{datetime.utcnow().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
+    return f"{REQUEST_CODE_PREFIX}{datetime.now().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
 
 
 def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
     """排队号：spec §1 示例 "F1, F2, T1, T2" —— 自然递增，不补零。"""
     prefix = "F" if mode == ChargeMode.FAST else "T"
-    today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
     count = (
         db.query(ChargingRequest)
         .filter(
@@ -89,7 +91,7 @@ def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
 
 
 def _user_has_overdue_unpaid_bill(db: Session, user_id: int) -> bool:
-    cutoff = datetime.utcnow() - timedelta(hours=BILL_OVERDUE_HOURS)
+    cutoff = datetime.now() - timedelta(hours=BILL_OVERDUE_HOURS)
     return (
         db.query(Bill)
         .filter(
@@ -103,6 +105,7 @@ def _user_has_overdue_unpaid_bill(db: Session, user_id: int) -> bool:
 
 
 def _vehicle_has_active_request(db: Session, vehicle_id: int) -> bool:
+    """检查车辆是否已有进行中的充电请求（含故障等待重调度）。"""
     return (
         db.query(ChargingRequest)
         .filter(
@@ -110,6 +113,7 @@ def _vehicle_has_active_request(db: Session, vehicle_id: int) -> bool:
             ChargingRequest.status.in_(
                 (
                     RequestStatus.WAITING,
+                    RequestStatus.FAULT_QUEUED,
                     RequestStatus.DISPATCHED,
                     RequestStatus.QUEUING_PILE,
                     RequestStatus.CHARGING,
@@ -177,6 +181,72 @@ def whoami(user: User = Depends(current_user)) -> User:
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# 车辆管理
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/vehicles", response_model=list[VehicleOut])
+def list_my_vehicles(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> list[VehicleOut]:
+    """列出当前用户的所有车辆。"""
+    vehicles = (
+        db.query(Vehicle)
+        .filter(Vehicle.owner_id == user.id)
+        .order_by(Vehicle.id)
+        .all()
+    )
+    return [VehicleOut.model_validate(v) for v in vehicles]
+
+
+@router.post("/vehicles", response_model=VehicleOut)
+def create_vehicle(
+    payload: VehicleCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> VehicleOut:
+    """为用户添加一辆新车。"""
+    # 检查车牌号是否已被占用
+    existing = db.query(Vehicle).filter(Vehicle.license_plate == payload.license_plate).first()
+    if existing is not None:
+        if existing.owner_id == user.id:
+            return VehicleOut.model_validate(existing)
+        raise HTTPException(status_code=409, detail="license plate already registered by another user")
+
+    vehicle = Vehicle(
+        license_plate=payload.license_plate,
+        owner_id=user.id,
+        battery_capacity_kwh=payload.battery_capacity_kwh,
+    )
+    db.add(vehicle)
+    db.commit()
+    db.refresh(vehicle)
+    return VehicleOut.model_validate(vehicle)
+
+
+@router.delete("/vehicles/{vehicle_id}")
+def delete_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """删除车辆（仅当该车无进行中的充电请求时允许）。"""
+    vehicle = db.get(Vehicle, vehicle_id)
+    if vehicle is None or vehicle.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="vehicle not found")
+
+    if _vehicle_has_active_request(db, vehicle.id):
+        raise HTTPException(
+            status_code=409, detail="vehicle has active charge request; cannot delete"
+        )
+
+    db.delete(vehicle)
+    db.commit()
+    return {"accepted": True, "message": "vehicle deleted"}
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # UC_01 SubmitChargeRequest
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -191,10 +261,30 @@ def submit_charge_request(
     if not _validate_entry_token(payload.entryToken):
         raise HTTPException(status_code=400, detail="invalid entryToken")
 
-    # 前置条件 2：车辆属于该用户
-    vehicle = db.get(Vehicle, payload.vehicleId)
-    if vehicle is None or vehicle.owner_id != user.id:
-        raise HTTPException(status_code=404, detail="vehicle not found")
+    # 解析车辆：优先使用已有 vehicleId，否则按车牌号查找或新建
+    vehicle: Vehicle | None = None
+    if payload.vehicleId is not None:
+        vehicle = db.get(Vehicle, payload.vehicleId)
+        if vehicle is None or vehicle.owner_id != user.id:
+            raise HTTPException(status_code=404, detail="vehicle not found")
+    elif payload.licensePlate is not None:
+        plate = payload.licensePlate.strip()
+        if not plate:
+            raise HTTPException(status_code=400, detail="licensePlate cannot be empty")
+        vehicle = db.query(Vehicle).filter(Vehicle.license_plate == plate).first()
+        if vehicle is None:
+            # 新车：自动保存到数据库
+            vehicle = Vehicle(
+                license_plate=plate,
+                owner_id=user.id,
+                battery_capacity_kwh=payload.batteryCapacity or 60.0,
+            )
+            db.add(vehicle)
+            db.flush()
+        elif vehicle.owner_id != user.id:
+            raise HTTPException(status_code=409, detail="license plate already registered by another user")
+    else:
+        raise HTTPException(status_code=400, detail="vehicleId or licensePlate required")
 
     # 前置条件 4：该车暂无进行中的请求
     if _vehicle_has_active_request(db, vehicle.id):
@@ -220,7 +310,7 @@ def submit_charge_request(
         )
 
     # 创建请求
-    now = datetime.utcnow()
+    now = datetime.now()
     req = ChargingRequest(
         request_code=_make_request_code(),
         user_id=user.id,
@@ -312,7 +402,7 @@ def update_charge_request(
     if payload.newMode is None and payload.newTargetAmount is None:
         raise HTTPException(status_code=400, detail="nothing to update")
 
-    now = datetime.utcnow()
+    now = datetime.now()
     mode_changed = payload.newMode is not None and payload.newMode != req.mode
 
     if mode_changed:
@@ -394,7 +484,7 @@ def cancel_charge_request(
             status_code=409, detail=f"cannot cancel request in status {req.status.value}"
         )
 
-    now = datetime.utcnow()
+    now = datetime.now()
     affected_pile_id = req.assigned_pile_id
 
     # 用户在充电中取消：停止会话，按已充电量出账单（spec 允许）。
@@ -451,7 +541,7 @@ def confirm_entry(
     if req.assigned_pile_id is None:
         raise HTTPException(status_code=500, detail="dispatched request without pile")
 
-    now = datetime.utcnow()
+    now = datetime.now()
     req.status = RequestStatus.QUEUING_PILE
     req.confirmed_at = now
     req.pile_queue_arrived_at = now
@@ -575,7 +665,7 @@ def confirm_payment(
         return ConfirmPaymentOut(accepted=True, message="bill already paid", bill=_bill_to_out(bill))
 
     bill.status = BillStatus.PAID
-    bill.paid_at = datetime.utcnow()
+    bill.paid_at = datetime.now()
     bill.pay_channel = payload.payChannel
     db.commit()
     db.refresh(bill)

@@ -80,7 +80,7 @@ def estimate_charging_fee(start_dt: datetime, target_kwh: float, power_kw: float
 
 
 def _make_bill_code() -> str:
-    return f"{BILL_CODE_PREFIX}{datetime.utcnow().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
+    return f"{BILL_CODE_PREFIX}{datetime.now().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
 
 
 def generate_bill(db: Session, session: ChargingSession) -> Bill:
@@ -103,7 +103,7 @@ def generate_bill(db: Session, session: ChargingSession) -> Bill:
         service_fee=round(service_fee, 2),
         total_amount=total,
         status=BillStatus.PENDING,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(),
     )
     db.add(bill)
     db.flush()  # 拿到 id

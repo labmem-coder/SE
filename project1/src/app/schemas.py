@@ -40,6 +40,12 @@ class LoginResponse(BaseModel):
 class VehicleOut(ORMBase):
     id: int
     license_plate: str
+    battery_capacity_kwh: float = 60.0
+
+
+class VehicleCreate(BaseModel):
+    license_plate: str = Field(..., min_length=1, max_length=20, description="车牌号")
+    battery_capacity_kwh: float = Field(default=60.0, gt=0, description="电池总容量 (kWh)")
 
 
 class UserOut(ORMBase):
@@ -54,7 +60,9 @@ class UserOut(ORMBase):
 
 
 class SubmitChargeRequestIn(BaseModel):
-    vehicleId: int = Field(..., description="车辆 ID")
+    vehicleId: Optional[int] = Field(default=None, description="已有车辆 ID")
+    licensePlate: Optional[str] = Field(default=None, min_length=1, max_length=20, description="新车牌号（新建车辆时使用）")
+    batteryCapacity: Optional[float] = Field(default=60.0, gt=0, description="新车电池容量（新建车辆时使用）")
     mode: ChargeMode
     targetAmount: float = Field(..., gt=0, description="目标充电量 (kWh)")
     entryToken: str = Field(..., min_length=1, description="等候区入场凭证")
@@ -67,7 +75,10 @@ class QueueInfo(BaseModel):
     requestCode: str
     status: RequestStatus
     mode: ChargeMode
+    targetAmount: float = 0.0                # 请求充电量 (kWh)
     queueNumber: str
+    vehicleId: Optional[int] = None
+    licensePlate: Optional[str] = None
     waitingPosition: Optional[int] = None     # 在等待队列中的位置，1-indexed；已离开等待队列为 None
     estimatedWaitMinutes: Optional[float] = None
     assignedPileCode: Optional[str] = None

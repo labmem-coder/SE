@@ -85,10 +85,15 @@ def seed() -> None:
         carol = _ensure_user(db, "carol", "carol", "Carol")
         dave = _ensure_user(db, "dave", "dave", "Dave")
 
-        _ensure_vehicle(db, "京A·EV001", alice)
-        _ensure_vehicle(db, "京A·EV002", bob)
-        _ensure_vehicle(db, "京A·EV003", carol)
-        _ensure_vehicle(db, "京A·EV004", dave)
+        # 每个用户多辆车（满足多车同时充电需求）
+        _ensure_vehicle(db, "京A·EV001", alice, 60.0)
+        _ensure_vehicle(db, "京A·EV005", alice, 75.0)
+        _ensure_vehicle(db, "京A·EV002", bob, 55.0)
+        _ensure_vehicle(db, "京A·EV006", bob, 70.0)
+        _ensure_vehicle(db, "京A·EV003", carol, 65.0)
+        _ensure_vehicle(db, "京A·EV007", carol, 80.0)
+        _ensure_vehicle(db, "京A·EV004", dave, 60.0)
+        _ensure_vehicle(db, "京A·EV008", dave, 72.0)
 
         db.commit()
         log.info(

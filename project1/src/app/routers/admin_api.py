@@ -187,7 +187,7 @@ def query_pile_queue_detail(
         return (charging, arrived)
     rows.sort(key=_key)
 
-    now = datetime.utcnow()
+    now = datetime.now()
     vehicles: list[PileQueuedVehicle] = []
     for r in rows:
         duration_min = (now - r.submitted_at).total_seconds() / 60.0
@@ -269,7 +269,7 @@ def query_operation_report(
     db: Session = Depends(get_db),
     _: User = Depends(admin_required),
 ) -> OperationReportOut:
-    now = datetime.utcnow()
+    now = datetime.now()
     if to_date is None:
         to_date = now
     if from_date is None:

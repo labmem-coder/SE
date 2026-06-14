@@ -82,7 +82,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     display_name: Mapped[str] = mapped_column(String(50), default="")
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="owner")
     requests: Mapped[list["ChargingRequest"]] = relationship(back_populates="user")
@@ -181,7 +181,7 @@ class ChargingRequest(Base):
     # 进入桩排队的时间（用于桩内 FIFO 排序），= ConfirmEntry 时间
     pile_queue_arrived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     dispatched_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -246,7 +246,7 @@ class Bill(Base):
     status: Mapped[BillStatus] = mapped_column(
         SAEnum(BillStatus), default=BillStatus.PENDING, nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     pay_channel: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
@@ -268,7 +268,7 @@ class AbnormalReport(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     pile_id: Mapped[int] = mapped_column(ForeignKey("charging_piles.id"), nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
-    reported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    reported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
 
     pile: Mapped[ChargingPile] = relationship(back_populates="abnormal_reports")

@@ -134,7 +134,7 @@ def pile_queue_position(db: Session, req: ChargingRequest) -> Optional[int]:
 
 def advance_active_sessions(db: Session, now: Optional[datetime] = None) -> None:
     """根据实际经过时间 × TIME_ACCELERATION，推进所有 CHARGING 会话的 charged_kwh。"""
-    now = now or datetime.utcnow()
+    now = now or datetime.now()
     sessions = (
         db.query(ChargingSession)
         .filter(ChargingSession.status == SessionStatus.CHARGING)
@@ -230,7 +230,7 @@ def _maybe_start_next_at_pile(db: Session, pile: ChargingPile) -> bool:
     if not next_req:
         return False
 
-    now = datetime.utcnow()
+    now = datetime.now()
     session = ChargingSession(
         request_id=next_req.id,
         pile_id=pile.id,
@@ -263,7 +263,7 @@ def _refresh_pile_status(db: Session, pile: ChargingPile) -> None:
 
 def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int:
     """5 分钟未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。"""
-    now = now or datetime.utcnow()
+    now = now or datetime.now()
     cutoff = now - timedelta(seconds=ENTRY_CONFIRM_TIMEOUT_SECONDS)
     timed_out = (
         db.query(ChargingRequest)
@@ -363,7 +363,7 @@ def _dispatch_one(db: Session, req: ChargingRequest, microsecond_offset: int = 0
     if best is None:
         return False
     _, chosen_pile = best
-    now = datetime.utcnow() + timedelta(microseconds=microsecond_offset)
+    now = datetime.now() + timedelta(microseconds=microsecond_offset)
     req.status = RequestStatus.DISPATCHED
     req.assigned_pile_id = chosen_pile.id
     req.dispatched_at = now
@@ -602,7 +602,7 @@ def _dispatch_mode_multi_short(db: Session, mode: ChargeMode) -> int:
         return count
 
     # 派遣 —— dispatched_at 按 SPT 顺序微增，保证桩内 FIFO 与 SPT 一致
-    now = datetime.utcnow()
+    now = datetime.now()
     for car, info, order in assignments:
         car.status = RequestStatus.DISPATCHED
         car.assigned_pile_id = info["pile"].id
@@ -691,7 +691,7 @@ def _dispatch_batch_mixed(db: Session) -> int:
         return 0
 
     count = 0
-    now = datetime.utcnow()
+    now = datetime.now()
     for car, info, order in assignments:
         car.status = RequestStatus.DISPATCHED
         car.assigned_pile_id = info["pile"].id
