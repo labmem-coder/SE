@@ -566,65 +566,40 @@ def _dispatch_mode_multi_short(db: Session, mode: ChargeMode) -> int:
     total_free = sum(p["free"] for p in pile_info)
     K = min(total_free, len(waiting))
     cars = waiting[:K]
-    P = len(pile_info)
 
-    # 暴力枚举所有 P^K 种分桩，桩内 SPT。复杂度 P^K，对 K≤8/P≤3 完全可接受。
-    best_cost = float("inf")
-    best_assignment = None
+    # SPT-LIST 算法（多项式时间，identical machine 下证明最优 SUM(C_i)）：
+    # 1) 把车按 target 升序（短的优先）
+    # 2) 每辆车分给当前 wait_h 最小的桩（earliest available）
+    # 3) 该桩 wait_h += own_h
+    sorted_cars = sorted(cars, key=lambda c: c.target_amount_kwh)
+    # 复制 pile_info 的 wait_h 与 free 字段做局部状态
+    state = [{"info": p, "wait_h": p["wait_h"], "free": p["free"]} for p in pile_info]
+    assignments = []  # (car, pile_info, order_in_pile)
+    pile_order_counter = [0] * len(state)
+    for c in sorted_cars:
+        # 找 free>0 且 wait_h 最小的桩
+        cand = [(s["wait_h"], idx) for idx, s in enumerate(state) if s["free"] > 0]
+        if not cand:
+            break
+        _, idx = min(cand)
+        own_h = c.target_amount_kwh / state[idx]["info"]["power"]
+        state[idx]["wait_h"] += own_h
+        state[idx]["free"] -= 1
+        assignments.append((c, state[idx]["info"], pile_order_counter[idx]))
+        pile_order_counter[idx] += 1
 
-    def evaluate(assignment):
-        groups = [[] for _ in range(P)]
-        for i, p_idx in enumerate(assignment):
-            groups[p_idx].append(cars[i])
-        for p_idx, g in enumerate(groups):
-            if len(g) > pile_info[p_idx]["free"]:
-                return None
-        total = 0.0
-        for p_idx, g in enumerate(groups):
-            if not g:
-                continue
-            info = pile_info[p_idx]
-            sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
-            cumulative = info["wait_h"]
-            for c in sorted_g:
-                cumulative += c.target_amount_kwh / info["power"]
-                total += cumulative
-        return total
-
-    def search(i, current):
-        nonlocal best_cost, best_assignment
-        if i == K:
-            cost = evaluate(current)
-            if cost is not None and cost < best_cost:
-                best_cost = cost
-                best_assignment = list(current)
-            return
-        for p_idx in range(P):
-            current.append(p_idx)
-            search(i + 1, current)
-            current.pop()
-
-    search(0, [])
-    if best_assignment is None:
+    if not assignments:
         return count
 
-    # 执行：桩内按 SPT 给 dispatched_at 微增，保证桩内 FIFO 顺序对
-    groups = [[] for _ in range(P)]
-    for i, p_idx in enumerate(best_assignment):
-        groups[p_idx].append(cars[i])
+    # 派遣 —— dispatched_at 按 SPT 顺序微增，保证桩内 FIFO 与 SPT 一致
     now = datetime.utcnow()
-    for p_idx, g in enumerate(groups):
-        if not g:
-            continue
-        info = pile_info[p_idx]
-        sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
-        for offset, c in enumerate(sorted_g):
-            c.status = RequestStatus.DISPATCHED
-            c.assigned_pile_id = info["pile"].id
-            c.dispatched_at = now + timedelta(microseconds=offset)
-            if info["pile"].status == PileStatus.AVAILABLE:
-                info["pile"].status = PileStatus.OCCUPIED
-            count += 1
+    for car, info, order in assignments:
+        car.status = RequestStatus.DISPATCHED
+        car.assigned_pile_id = info["pile"].id
+        car.dispatched_at = now + timedelta(microseconds=order)
+        if info["pile"].status == PileStatus.AVAILABLE:
+            info["pile"].status = PileStatus.OCCUPIED
+        count += 1
     db.flush()
     return count
 
@@ -685,64 +660,34 @@ def _dispatch_batch_mixed(db: Session) -> int:
     total_free = sum(p["free"] for p in pile_info)
     K = min(total_free, len(waiting))
     cars = waiting[:K]
-    P = len(pile_info)
 
-    best_cost = float("inf")
-    best_assignment = None
+    # SPT-LIST 算法，跨模式（spec §8.2 明确"所有车辆均可分配任意类型充电桩"）
+    sorted_cars = sorted(cars, key=lambda c: c.target_amount_kwh)
+    state = [{"info": p, "wait_h": p["wait_h"], "free": p["free"]} for p in pile_info]
+    assignments = []
+    pile_order_counter = [0] * len(state)
+    for c in sorted_cars:
+        cand = [(s["wait_h"], idx) for idx, s in enumerate(state) if s["free"] > 0]
+        if not cand:
+            break
+        _, idx = min(cand)
+        own_h = c.target_amount_kwh / state[idx]["info"]["power"]
+        state[idx]["wait_h"] += own_h
+        state[idx]["free"] -= 1
+        assignments.append((c, state[idx]["info"], pile_order_counter[idx]))
+        pile_order_counter[idx] += 1
 
-    def evaluate(assignment):
-        groups = [[] for _ in range(P)]
-        for i, p_idx in enumerate(assignment):
-            groups[p_idx].append(cars[i])
-        for p_idx, g in enumerate(groups):
-            if len(g) > pile_info[p_idx]["free"]:
-                return None
-        total = 0.0
-        for p_idx, g in enumerate(groups):
-            if not g:
-                continue
-            info = pile_info[p_idx]
-            sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
-            cumulative = info["wait_h"]
-            for c in sorted_g:
-                cumulative += c.target_amount_kwh / info["power"]
-                total += cumulative
-        return total
-
-    def search(i, current):
-        nonlocal best_cost, best_assignment
-        if i == K:
-            cost = evaluate(current)
-            if cost is not None and cost < best_cost:
-                best_cost = cost
-                best_assignment = list(current)
-            return
-        for p_idx in range(P):
-            current.append(p_idx)
-            search(i + 1, current)
-            current.pop()
-
-    search(0, [])
-    if best_assignment is None:
+    if not assignments:
         return 0
 
     count = 0
-    groups = [[] for _ in range(P)]
-    for i, p_idx in enumerate(best_assignment):
-        groups[p_idx].append(cars[i])
     now = datetime.utcnow()
-    for p_idx, g in enumerate(groups):
-        if not g:
-            continue
-        info = pile_info[p_idx]
-        sorted_g = sorted(g, key=lambda c: c.target_amount_kwh)
-        for offset, c in enumerate(sorted_g):
-            # 8.2: 批量调度允许跨模式分配桩，可能不匹配原 mode
-            c.status = RequestStatus.DISPATCHED
-            c.assigned_pile_id = info["pile"].id
-            c.dispatched_at = now + timedelta(microseconds=offset)
-            if info["pile"].status == PileStatus.AVAILABLE:
-                info["pile"].status = PileStatus.OCCUPIED
-            count += 1
+    for car, info, order in assignments:
+        car.status = RequestStatus.DISPATCHED
+        car.assigned_pile_id = info["pile"].id
+        car.dispatched_at = now + timedelta(microseconds=order)
+        if info["pile"].status == PileStatus.AVAILABLE:
+            info["pile"].status = PileStatus.OCCUPIED
+        count += 1
     db.flush()
     return count
