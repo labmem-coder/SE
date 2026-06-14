@@ -7,6 +7,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from .clock import get_time
 from .config import FAULT_DISPATCH_POLICY, REQUEST_CODE_PREFIX
 from .models import (
     AbnormalReport,
@@ -28,13 +29,13 @@ from .scheduler import (
 
 
 def _make_request_code() -> str:
-    return f"{REQUEST_CODE_PREFIX}{datetime.now().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
+    return f"{REQUEST_CODE_PREFIX}{get_time().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
 
 
 def _assign_queue_number(db: Session, mode) -> str:
     """给重调度请求生成排队号。模式前缀 + 当日累计计数（不补零）。"""
     prefix = "F" if mode.value == "fast" else "T"
-    today = datetime.now().date()
+    today = get_time().date()
     start = datetime.combine(today, datetime.min.time())
     count = (
         db.query(ChargingRequest)
@@ -63,7 +64,7 @@ def confirm_pile_fault(
     if pile.status == PileStatus.FAULT:
         raise ValueError("Pile is already marked as FAULT")
 
-    now = datetime.now()
+    now = get_time()
     effective_fault_time = fault_time or now
 
     # 推进当前会话进度到故障时刻
@@ -200,7 +201,7 @@ def resume_pile(db: Session, pile_id: int) -> None:
     if pile.status != PileStatus.FAULT:
         raise ValueError("Pile is not currently in FAULT status")
 
-    now = datetime.now()
+    now = get_time()
     open_fault = (
         db.query(FaultRecord)
         .filter(FaultRecord.pile_id == pile.id, FaultRecord.resolved_at.is_(None))

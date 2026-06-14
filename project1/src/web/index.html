@@ -237,6 +237,81 @@
   }
   .login-form .btn-login:hover { background: #1e3a8a; }
 
+  /* ── Time Control Card ── */
+  .time-card {
+    background: linear-gradient(135deg, #f0f9ff 0%, #fafbfc 40%, #f1f5f9 100%);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .time-card .time-icon { font-size: 1.2rem; }
+  .time-display {
+    font-family: var(--font-mono);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--electric-dim);
+    white-space: nowrap;
+    letter-spacing: .02em;
+  }
+  .time-speed-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .82rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .time-speed-group select {
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--electric-dim);
+    cursor: pointer;
+  }
+  .time-speed-group select:focus {
+    border-color: var(--electric);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--electric-glow);
+  }
+  .time-advance {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+  .time-advance .btn-time-jump {
+    font-family: var(--font-ui);
+    font-size: .88rem;
+    font-weight: 700;
+    padding: 8px 18px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink-light);
+    cursor: pointer;
+    transition: all .18s;
+    white-space: nowrap;
+  }
+  .time-advance .btn-time-jump:hover {
+    background: var(--electric-glow);
+    border-color: var(--electric-bright);
+    color: var(--electric-dim);
+  }
+  .time-advance .btn-time-jump:active {
+    background: var(--electric);
+    color: #fff;
+    border-color: var(--electric);
+  }
+
   /* ── user panel tab buttons ── */
   .user-tabs {
     display: flex;
@@ -746,6 +821,29 @@
   </section>
 
   <!-- ═══════════════════════════════════════════
+       TIME CONTROL CARD  (shared, shown when logged in)
+       ═══════════════════════════════════════════ -->
+  <div class="time-card hidden" id="time-card">
+    <span class="time-icon" aria-hidden="true">⏰</span>
+    <span class="time-display" id="time-display">2026-06-14 08:00:00</span>
+    <div class="time-speed-group">
+      <label for="time-speed-sel">⚡ 流速:</label>
+      <select id="time-speed-sel" onchange="setTimeSpeed()">
+        <option value="1">1×</option>
+        <option value="10">10×</option>
+        <option value="20">20×</option>
+        <option value="30">30×</option>
+      </select>
+    </div>
+    <div class="time-advance">
+      <button class="btn-time-jump" onclick="advanceTime(10)" title="向前推进 10 分钟">⏩ +10分</button>
+      <button class="btn-time-jump" onclick="advanceTime(30)" title="向前推进 30 分钟">⏩ +30分</button>
+      <button class="btn-time-jump" onclick="advanceTime(60)" title="向前推进 1 小时">⏩ +1时</button>
+      <button class="btn-time-jump" onclick="advanceTime(180)" title="向前推进 3 小时">⏩ +3时</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
        USER PANEL
        ═══════════════════════════════════════════ -->
   <div class="hidden" id="user-panel" role="tabpanel">
@@ -848,7 +946,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>排队号</th><th>请求编号</th><th>车牌号</th><th>状态</th><th>模式</th><th>请求电量</th>
+                  <th>排队号</th><th>请求编号</th><th>车牌号</th><th>状态</th><th>模式</th><th>目标电量</th>
                   <th>等待位置</th><th>预计等待</th><th>分配桩 / 桩内位</th><th>操作</th>
                 </tr>
               </thead>
@@ -1038,6 +1136,51 @@ let PILES   = [];
 const TICK  = 5;   // seconds
 let _tickTimer = null;
 let _countdown  = null;
+let _clockTimer = null;
+
+// ── Clock ──────────────────────────────────────────────────────
+async function refreshClock() {
+  try {
+    const r = await api("/api/clock");
+    document.getElementById("time-display").textContent = r.virtual_time.replace("T"," ").slice(0,19);
+    document.getElementById("time-speed-sel").value = String(r.speed);
+  } catch(e) { /* clock endpoint may not be available yet */ }
+}
+
+async function setTimeSpeed() {
+  const speed = parseFloat(document.getElementById("time-speed-sel").value);
+  try {
+    const r = await api("/api/clock/speed", {method:"POST", body:JSON.stringify({speed})});
+    document.getElementById("time-display").textContent = r.virtual_time.replace("T"," ").slice(0,19);
+    toast(`流速已设为 ${speed}×`);
+    // Immediately refresh data to reflect new time state
+    refreshAllData();
+  } catch(e) { toast("设置流速失败："+e.message, false); }
+}
+
+async function advanceTime(minutes) {
+  try {
+    const r = await api("/api/clock/advance", {method:"POST", body:JSON.stringify({minutes})});
+    document.getElementById("time-display").textContent = r.virtual_time.replace("T"," ").slice(0,19);
+    const label = minutes>=60 ? `${(minutes/60).toFixed(1)}小时` : `${minutes}分钟`;
+    toast(`时间已推进 ${label}`);
+    // Immediately refresh data to reflect new time state
+    await refreshAllData();
+  } catch(e) { toast("推进时间失败："+e.message, false); }
+}
+
+async function refreshAllData() {
+  if (!USER) return;
+  try {
+    if (USER.is_admin) {
+      await refreshPiles();
+      loadAbnormalReports().catch(()=>{});
+    } else {
+      await refreshMyRequests();
+      refreshMyBills().catch(()=>{});
+    }
+  } catch(e) { console.error("refreshAllData failed", e); }
+}
 
 // ── Toast ──────────────────────────────────────────────────────
 function toast(msg, ok = true) {
@@ -1063,6 +1206,8 @@ async function api(path, opts = {}) {
 // ── Auto-refresh ───────────────────────────────────────────────
 function startTick(fn) {
   stopTick();
+  // 时钟每秒刷新一次，数据每 TICK 秒刷新一次
+  _clockTimer = setInterval(() => { refreshClock().catch(()=>{}); }, 1000);
   _tickTimer = setInterval(fn, TICK * 1000);
   let rem = TICK;
   const prefix = USER && USER.is_admin ? "admin" : "user";
@@ -1079,6 +1224,7 @@ function startTick(fn) {
 function stopTick() {
   if (_tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
   if (_countdown) { clearInterval(_countdown); _countdown = null; }
+  if (_clockTimer) { clearInterval(_clockTimer); _clockTimer = null; }
 }
 
 // ── Login role switching ──────────────────────────────────────
@@ -1129,6 +1275,8 @@ async function doLogin() {
       `👤 ${r.username}${r.is_admin ? ' <span class="role-tag">管理员</span>' : ''}`;
     document.getElementById("btn-logout").classList.remove("hidden");
     document.getElementById("sec-login").classList.add("hidden");
+    document.getElementById("time-card").classList.remove("hidden");
+    await refreshClock();
 
     if (r.is_admin) {
       document.getElementById("admin-panel").classList.remove("hidden");
@@ -1166,6 +1314,7 @@ function doLogout() {
   document.getElementById("sec-login").classList.remove("hidden");
   document.getElementById("user-panel").classList.add("hidden");
   document.getElementById("admin-panel").classList.add("hidden");
+  document.getElementById("time-card").classList.add("hidden");
   toast("已退出登录");
 }
 

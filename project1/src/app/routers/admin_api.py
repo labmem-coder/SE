@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import admin_required
+from ..clock import get_time
 from ..db import get_db
 from ..fault import confirm_pile_fault, resume_pile
 from ..models import (
@@ -187,7 +188,7 @@ def query_pile_queue_detail(
         return (charging, arrived)
     rows.sort(key=_key)
 
-    now = datetime.now()
+    now = get_time()
     vehicles: list[PileQueuedVehicle] = []
     for r in rows:
         duration_min = (now - r.submitted_at).total_seconds() / 60.0
@@ -269,7 +270,7 @@ def query_operation_report(
     db: Session = Depends(get_db),
     _: User = Depends(admin_required),
 ) -> OperationReportOut:
-    now = datetime.now()
+    now = get_time()
     if to_date is None:
         to_date = now
     if from_date is None:

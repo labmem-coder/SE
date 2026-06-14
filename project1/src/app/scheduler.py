@@ -19,6 +19,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .clock import get_time
 from .config import (
     ENTRY_CONFIRM_TIMEOUT_SECONDS,
     EXTENDED_SCHEDULE_POLICY,
@@ -134,7 +135,7 @@ def pile_queue_position(db: Session, req: ChargingRequest) -> Optional[int]:
 
 def advance_active_sessions(db: Session, now: Optional[datetime] = None) -> None:
     """根据实际经过时间 × TIME_ACCELERATION，推进所有 CHARGING 会话的 charged_kwh。"""
-    now = now or datetime.now()
+    now = now or get_time()
     sessions = (
         db.query(ChargingSession)
         .filter(ChargingSession.status == SessionStatus.CHARGING)
@@ -230,7 +231,7 @@ def _maybe_start_next_at_pile(db: Session, pile: ChargingPile) -> bool:
     if not next_req:
         return False
 
-    now = datetime.now()
+    now = get_time()
     session = ChargingSession(
         request_id=next_req.id,
         pile_id=pile.id,
@@ -262,7 +263,11 @@ def _refresh_pile_status(db: Session, pile: ChargingPile) -> None:
 
 
 def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int:
-    """5 分钟未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。"""
+    """5 分钟未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。
+
+    注意：超时判定使用真实时间（datetime.now），不跟随虚拟时钟，确保
+    用户始终有完整的 5 真实分钟来响应叫号。
+    """
     now = now or datetime.now()
     cutoff = now - timedelta(seconds=ENTRY_CONFIRM_TIMEOUT_SECONDS)
     timed_out = (
@@ -363,6 +368,8 @@ def _dispatch_one(db: Session, req: ChargingRequest, microsecond_offset: int = 0
     if best is None:
         return False
     _, chosen_pile = best
+    # dispatched_at 使用真实时间，因为超时检查（handle_dispatch_timeouts）
+    # 基于真实 wall-clock 时间，确保用户有完整 5 分钟响应窗口
     now = datetime.now() + timedelta(microseconds=microsecond_offset)
     req.status = RequestStatus.DISPATCHED
     req.assigned_pile_id = chosen_pile.id
@@ -601,7 +608,7 @@ def _dispatch_mode_multi_short(db: Session, mode: ChargeMode) -> int:
     if not assignments:
         return count
 
-    # 派遣 —— dispatched_at 按 SPT 顺序微增，保证桩内 FIFO 与 SPT 一致
+    # 派遣 —— dispatched_at 使用真实时间，确保超时检查正确
     now = datetime.now()
     for car, info, order in assignments:
         car.status = RequestStatus.DISPATCHED
@@ -691,6 +698,7 @@ def _dispatch_batch_mixed(db: Session) -> int:
         return 0
 
     count = 0
+    # dispatched_at 使用真实时间，确保超时检查正确
     now = datetime.now()
     for car, info, order in assignments:
         car.status = RequestStatus.DISPATCHED

@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .db import init_db
 from .routers.admin_api import router as admin_router
+from .routers.clock_api import router as clock_router
 from .routers.user_api import router as user_router
 from .tick import start_scheduler
 
@@ -51,6 +52,7 @@ app.add_middleware(
 
 app.include_router(user_router)
 app.include_router(admin_router)
+app.include_router(clock_router)
 
 # 静态前端
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"

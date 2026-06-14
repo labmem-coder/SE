@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..auth import current_user, make_token, verify_password
+from ..clock import get_time
 from ..config import BILL_OVERDUE_HOURS, REQUEST_CODE_PREFIX, WAITING_AREA_SIZE
 from ..db import get_db
 from ..models import (
@@ -72,13 +73,13 @@ router = APIRouter(prefix="/api", tags=["user"])
 
 
 def _make_request_code() -> str:
-    return f"{REQUEST_CODE_PREFIX}{datetime.now().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
+    return f"{REQUEST_CODE_PREFIX}{get_time().strftime('%Y%m%d')}{uuid.uuid4().hex[:6].upper()}"
 
 
 def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
     """排队号：spec §1 示例 "F1, F2, T1, T2" —— 自然递增，不补零。"""
     prefix = "F" if mode == ChargeMode.FAST else "T"
-    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+    today_start = datetime.combine(get_time().date(), datetime.min.time())
     count = (
         db.query(ChargingRequest)
         .filter(
@@ -91,7 +92,7 @@ def _assign_queue_number(db: Session, mode: ChargeMode) -> str:
 
 
 def _user_has_overdue_unpaid_bill(db: Session, user_id: int) -> bool:
-    cutoff = datetime.now() - timedelta(hours=BILL_OVERDUE_HOURS)
+    cutoff = get_time() - timedelta(hours=BILL_OVERDUE_HOURS)
     return (
         db.query(Bill)
         .filter(
@@ -310,7 +311,7 @@ def submit_charge_request(
         )
 
     # 创建请求
-    now = datetime.now()
+    now = get_time()
     req = ChargingRequest(
         request_code=_make_request_code(),
         user_id=user.id,
@@ -402,7 +403,7 @@ def update_charge_request(
     if payload.newMode is None and payload.newTargetAmount is None:
         raise HTTPException(status_code=400, detail="nothing to update")
 
-    now = datetime.now()
+    now = get_time()
     mode_changed = payload.newMode is not None and payload.newMode != req.mode
 
     if mode_changed:
@@ -484,7 +485,7 @@ def cancel_charge_request(
             status_code=409, detail=f"cannot cancel request in status {req.status.value}"
         )
 
-    now = datetime.now()
+    now = get_time()
     affected_pile_id = req.assigned_pile_id
 
     # 用户在充电中取消：停止会话，按已充电量出账单（spec 允许）。
@@ -541,7 +542,7 @@ def confirm_entry(
     if req.assigned_pile_id is None:
         raise HTTPException(status_code=500, detail="dispatched request without pile")
 
-    now = datetime.now()
+    now = get_time()
     req.status = RequestStatus.QUEUING_PILE
     req.confirmed_at = now
     req.pile_queue_arrived_at = now
@@ -665,7 +666,7 @@ def confirm_payment(
         return ConfirmPaymentOut(accepted=True, message="bill already paid", bill=_bill_to_out(bill))
 
     bill.status = BillStatus.PAID
-    bill.paid_at = datetime.now()
+    bill.paid_at = get_time()
     bill.pay_channel = payload.payChannel
     db.commit()
     db.refresh(bill)
