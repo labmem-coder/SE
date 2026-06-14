@@ -254,3 +254,31 @@ class OperationReportOut(BaseModel):
     pendingBills: int
     faultCount: int
     pilesBreakdown: list[dict]
+
+
+# ────────────────── 系统配置 ──────────────────
+
+
+class SystemConfigOut(BaseModel):
+    """当前系统配置（管理员可见）。"""
+    faultDispatchPolicy: str
+    extendedSchedulePolicy: str
+    fastPileCount: int
+    slowPileCount: int
+    fastPilePowerKw: float
+    slowPilePowerKw: float
+    pileQueueCapacity: int
+    waitingAreaSize: int
+    hasActiveSessions: bool = False
+
+
+class SystemConfigUpdateIn(BaseModel):
+    """更新系统配置。"""
+    faultDispatchPolicy: Optional[str] = Field(default=None, description="priority | time_order")
+    extendedSchedulePolicy: Optional[str] = Field(default=None, description="normal | multi_short | batch_short")
+    fastPileCount: Optional[int] = Field(default=None, ge=0, le=20)
+    slowPileCount: Optional[int] = Field(default=None, ge=0, le=20)
+    fastPilePowerKw: Optional[float] = Field(default=None, gt=0, le=500)
+    slowPilePowerKw: Optional[float] = Field(default=None, gt=0, le=500)
+    pileQueueCapacity: Optional[int] = Field(default=None, ge=1, le=20)
+    waitingAreaSize: Optional[int] = Field(default=None, ge=1, le=200)

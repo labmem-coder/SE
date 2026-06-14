@@ -404,6 +404,112 @@
   }
 
   /* ============================================================
+     CONFIG PANEL  (admin → 调度策略 tab)
+     ============================================================ */
+  .config-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .config-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all .18s;
+    background: var(--surface);
+  }
+  .config-radio:hover {
+    border-color: var(--electric-bright);
+    background: var(--electric-glow);
+  }
+  .config-radio input[type="radio"] {
+    margin-top: 2px;
+    accent-color: var(--electric);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .config-radio-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .config-radio-body strong {
+    font-size: .88rem;
+    color: var(--ink);
+  }
+  .config-radio-body small {
+    font-size: .76rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .config-field label {
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--ink-light);
+  }
+  .config-field .cfg-hint {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: .73rem;
+  }
+  .config-field input {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: .9rem;
+    font-family: var(--font-mono);
+    background: var(--surface);
+    transition: border-color .15s;
+  }
+  .config-field input:focus {
+    outline: none;
+    border-color: var(--electric);
+    box-shadow: 0 0 0 3px var(--electric-glow);
+  }
+  .config-warning {
+    background: var(--warn-soft);
+    color: var(--warn);
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: .82rem;
+    margin-bottom: 14px;
+  }
+  .card-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cfg-update-btn {
+    font-size: .88rem !important;
+    padding: 8px 22px !important;
+    white-space: nowrap;
+  }
+  .cfg-status {
+    font-size: .82rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .cfg-status.ok { color: var(--ok); }
+  .cfg-status.err { color: var(--err); }
+
+  /* ============================================================
      DASHBOARD STAT CARDS  (user + admin)
      ============================================================ */
   .stat-row {
@@ -996,7 +1102,7 @@
     <!-- Tab buttons -->
     <div class="admin-tabs">
       <button class="admin-tab-btn active" id="tab-piles" onclick="switchAdminTab('piles')">🔋 充电桩管理</button>
-      <button class="admin-tab-btn" id="tab-sched" onclick="switchAdminTab('sched')">⚙️ 调度策略</button>
+      <button class="admin-tab-btn" id="tab-sched" onclick="switchAdminTab('sched')">⚙️ 系统配置</button>
       <button class="admin-tab-btn" id="tab-report" onclick="switchAdminTab('report')">📊 运营报表</button>
     </div>
 
@@ -1059,16 +1165,116 @@
 
     </div>
 
-    <!-- ═══════════ Tab: 调度策略 ═══════════ -->
+    <!-- ═══════════ Tab: 系统配置 ═══════════ -->
     <div id="admin-tab-sched" class="hidden" style="display:flex;flex-direction:column;gap:20px">
-      <section class="card">
+
+      <!-- Section 1: 故障调度策略 -->
+      <section class="card" aria-labelledby="cfg-fault-title">
+        <div class="card-head">
+          <h3 id="cfg-fault-title">🔧 故障调度策略</h3>
+          <div class="card-head-actions">
+            <span class="cfg-status" id="cfg-fault-status"></span>
+            <button class="btn btn-pri cfg-update-btn" id="btn-update-fault" onclick="updateFaultPolicy()">🔄 更新配置</button>
+          </div>
+        </div>
         <div class="card-body">
-          <div class="empty">
-            <div class="empty-icon">⚙️</div>
-            <p>调度策略配置功能开发中…</p>
+          <div class="config-radio-group" id="cfg-fault-policy">
+            <label class="config-radio">
+              <input type="radio" name="faultPolicy" value="priority" checked>
+              <span class="config-radio-body">
+                <strong>优先级调度 (priority)</strong>
+                <small>暂停等候区调度，优先将故障队列中的车辆全部派入充电区，待故障队列排空后再恢复等候区调度。</small>
+              </span>
+            </label>
+            <label class="config-radio">
+              <input type="radio" name="faultPolicy" value="time_order">
+              <span class="config-radio-body">
+                <strong>时间顺序调度 (time_order)</strong>
+                <small>故障队列 + 其它同类型桩中未充电车辆合并，按排队号码（priority_time）顺序统一重新调度。</small>
+              </span>
+            </label>
           </div>
         </div>
       </section>
+
+      <!-- Section 2: 扩展调度策略 -->
+      <section class="card" aria-labelledby="cfg-ext-title">
+        <div class="card-head">
+          <h3 id="cfg-ext-title">📐 扩展调度策略</h3>
+          <div class="card-head-actions">
+            <span class="cfg-status" id="cfg-ext-status"></span>
+            <button class="btn btn-pri cfg-update-btn" id="btn-update-ext" onclick="updateExtendedPolicy()">🔄 更新配置</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="config-radio-group" id="cfg-ext-policy">
+            <label class="config-radio">
+              <input type="radio" name="extPolicy" value="normal" checked>
+              <span class="config-radio-body">
+                <strong>标准调度 (normal)</strong>
+                <small>单车顺序贪心调度：每来一辆车，按模式分派到"完成时间最短"的桩，桩内 FIFO。</small>
+              </span>
+            </label>
+            <label class="config-radio">
+              <input type="radio" name="extPolicy" value="multi_short">
+              <span class="config-radio-body">
+                <strong>§8.1 多车最短 (multi_short)</strong>
+                <small>单次多车总充电时长最短：一次性把等候区前 K 辆车按 SPT-LIST 算法分配到可用桩位，桩内按短作业优先 (SPT) 顺序。</small>
+              </span>
+            </label>
+            <label class="config-radio">
+              <input type="radio" name="extPolicy" value="batch_short">
+              <span class="config-radio-body">
+                <strong>§8.2 批量调度 (batch_short)</strong>
+                <small>充电区 + 等候区全满时触发批量调度：所有等候车辆（不分快慢）按 SPT-LIST 跨模式分配到全部可用桩位。</small>
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: 充电桩配置 -->
+      <section class="card" aria-labelledby="cfg-pile-title">
+        <div class="card-head">
+          <h3 id="cfg-pile-title">🔋 充电桩配置</h3>
+          <div class="card-head-actions">
+            <span class="cfg-status" id="cfg-pile-status"></span>
+            <button class="btn btn-pri cfg-update-btn" id="btn-update-pile" onclick="updatePileConfig()">🔄 更新配置</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-field">
+              <label for="cfg-fast-count">快充桩数量 <span class="cfg-hint">(F 标识)</span></label>
+              <input type="number" id="cfg-fast-count" min="0" max="20" value="2">
+            </div>
+            <div class="config-field">
+              <label for="cfg-slow-count">慢充桩数量 <span class="cfg-hint">(T 标识)</span></label>
+              <input type="number" id="cfg-slow-count" min="0" max="20" value="3">
+            </div>
+            <div class="config-field">
+              <label for="cfg-fast-power">快充速率 <span class="cfg-hint">(kWh/h)</span></label>
+              <input type="number" id="cfg-fast-power" min="1" max="500" step="0.1" value="30">
+            </div>
+            <div class="config-field">
+              <label for="cfg-slow-power">慢充速率 <span class="cfg-hint">(kWh/h)</span></label>
+              <input type="number" id="cfg-slow-power" min="1" max="500" step="0.1" value="10">
+            </div>
+            <div class="config-field">
+              <label for="cfg-waiting-size">等候区长度 <span class="cfg-hint">(最大等候车辆数)</span></label>
+              <input type="number" id="cfg-waiting-size" min="1" max="200" value="10">
+            </div>
+            <div class="config-field">
+              <label for="cfg-queue-cap">充电桩队列长度 <span class="cfg-hint">(含正在充电的 1 个)</span></label>
+              <input type="number" id="cfg-queue-cap" min="1" max="20" value="3">
+            </div>
+          </div>
+          <div id="cfg-active-warning" class="config-warning hidden">
+            ⚠️ 有充电桩正在工作中，无法修改配置。请等待所有充电完成后重试。
+          </div>
+        </div>
+      </section>
+
     </div>
 
     <!-- ═══════════ Tab: 运营报表 ═══════════ -->
@@ -1321,14 +1527,15 @@ function doLogout() {
 // ── Pile selects ───────────────────────────────────────────────
 async function loadPileSelects() {
   try {
-    const r = await api("/api/admin/piles");
-    PILES = r.piles;
-    const opts = r.piles.map(p =>
+    const piles = await api("/api/piles");
+    PILES = piles;
+    const opts = piles.map(p =>
       `<option value="${p.pileId}">${p.pileCode} (${p.mode==="fast"?"快充":"慢充"})</option>`).join("");
     ["rep-pile","flt-pile"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
-  } catch {
+  } catch(e) {
+    console.error("loadPileSelects failed", e);
     const guess = ["F1","F2","T1","T2","T3"].map((c,i) => `<option value="${i+1}">${c}</option>`).join("");
-    const el = document.getElementById("rep-pile"); if(el) el.innerHTML = guess;
+    ["rep-pile","flt-pile"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = guess; });
   }
 }
 
@@ -1358,6 +1565,136 @@ function switchAdminTab(tab) {
       div.classList.add("hidden");
     }
   });
+  if (tab === "sched") {
+    loadConfig().catch(() => {});
+  }
+}
+
+// ── Config Panel ──────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const cfg = await api("/api/admin/config");
+    // 故障调度策略
+    document.querySelector(`input[name="faultPolicy"][value="${cfg.faultDispatchPolicy}"]`).checked = true;
+    // 扩展调度策略
+    document.querySelector(`input[name="extPolicy"][value="${cfg.extendedSchedulePolicy}"]`).checked = true;
+    // 充电桩配置
+    document.getElementById("cfg-fast-count").value = cfg.fastPileCount;
+    document.getElementById("cfg-slow-count").value = cfg.slowPileCount;
+    document.getElementById("cfg-fast-power").value = cfg.fastPilePowerKw;
+    document.getElementById("cfg-slow-power").value = cfg.slowPilePowerKw;
+    document.getElementById("cfg-waiting-size").value = cfg.waitingAreaSize;
+    document.getElementById("cfg-queue-cap").value = cfg.pileQueueCapacity;
+    // 工作中状态
+    setConfigButtonsDisabled(cfg.hasActiveSessions);
+    // 清除各卡片状态
+    ["cfg-fault-status","cfg-ext-status","cfg-pile-status"].forEach(id => {
+      document.getElementById(id).textContent = "";
+      document.getElementById(id).className = "cfg-status";
+    });
+  } catch(e) {
+    console.error("loadConfig failed", e);
+    toast("加载配置失败：" + e.message, false);
+  }
+}
+
+function setConfigButtonsDisabled(disabled) {
+  const warn = document.getElementById("cfg-active-warning");
+  const btns = ["btn-update-fault","btn-update-ext","btn-update-pile"];
+  if (disabled) {
+    warn.classList.remove("hidden");
+    btns.forEach(id => {
+      const b = document.getElementById(id);
+      b.disabled = true;
+      b.textContent = "🔒 工作中";
+    });
+  } else {
+    warn.classList.add("hidden");
+    btns.forEach(id => {
+      const b = document.getElementById(id);
+      b.disabled = false;
+      b.textContent = "🔄 更新配置";
+    });
+  }
+}
+
+async function updateFaultPolicy() {
+  const statusEl = document.getElementById("cfg-fault-status");
+  statusEl.textContent = "";
+  statusEl.className = "cfg-status";
+  const faultPolicy = document.querySelector('input[name="faultPolicy"]:checked')?.value;
+  try {
+    await api("/api/admin/config", {method:"PUT", body:JSON.stringify({faultDispatchPolicy: faultPolicy})});
+    statusEl.textContent = "✓ 已更新";
+    statusEl.className = "cfg-status ok";
+    await refreshPiles();
+  } catch(e) {
+    statusEl.textContent = "✗ " + e.message;
+    statusEl.className = "cfg-status err";
+    toast("更新失败：" + e.message, false);
+  }
+}
+
+async function updateExtendedPolicy() {
+  const statusEl = document.getElementById("cfg-ext-status");
+  statusEl.textContent = "";
+  statusEl.className = "cfg-status";
+  const extPolicy = document.querySelector('input[name="extPolicy"]:checked')?.value;
+  try {
+    await api("/api/admin/config", {method:"PUT", body:JSON.stringify({extendedSchedulePolicy: extPolicy})});
+    statusEl.textContent = "✓ 已更新";
+    statusEl.className = "cfg-status ok";
+    await refreshPiles();
+  } catch(e) {
+    statusEl.textContent = "✗ " + e.message;
+    statusEl.className = "cfg-status err";
+    toast("更新失败：" + e.message, false);
+  }
+}
+
+async function updatePileConfig() {
+  const statusEl = document.getElementById("cfg-pile-status");
+  statusEl.textContent = "";
+  statusEl.className = "cfg-status";
+
+  const fastCount = parseInt(document.getElementById("cfg-fast-count").value);
+  const slowCount = parseInt(document.getElementById("cfg-slow-count").value);
+  const fastPower = parseFloat(document.getElementById("cfg-fast-power").value);
+  const slowPower = parseFloat(document.getElementById("cfg-slow-power").value);
+  const waitingSize = parseInt(document.getElementById("cfg-waiting-size").value);
+  const queueCap = parseInt(document.getElementById("cfg-queue-cap").value);
+
+  if (!fastCount && !slowCount) {
+    toast("至少需要 1 个充电桩", false);
+    return;
+  }
+  if (fastCount < 0 || slowCount < 0 || fastCount > 20 || slowCount > 20) {
+    toast("充电桩数量需在 0~20 之间", false);
+    return;
+  }
+
+  const body = {
+    fastPileCount: fastCount,
+    slowPileCount: slowCount,
+    fastPilePowerKw: fastPower,
+    slowPilePowerKw: slowPower,
+    pileQueueCapacity: queueCap,
+    waitingAreaSize: waitingSize,
+  };
+
+  try {
+    const r = await api("/api/admin/config", {method:"PUT", body:JSON.stringify(body)});
+    statusEl.textContent = "✓ 已更新";
+    statusEl.className = "cfg-status ok";
+    await refreshPiles();
+    await loadPileSelects();
+    await loadConfig();
+    toast("配置已更新" + (r.fastPileCount !== fastCount || r.slowPileCount !== slowCount ? "（数据库已重置）" : ""));
+  } catch(e) {
+    statusEl.textContent = "✗ " + e.message;
+    statusEl.className = "cfg-status err";
+    toast("更新失败：" + e.message, false);
+  }
 }
 
 // ── User Tab Switching ────────────────────────────────────
