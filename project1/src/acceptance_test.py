@@ -148,18 +148,23 @@ def _pile_id(db, code: str) -> int:
 
 
 def _auto_confirm_dispatched(db, when: datetime) -> None:
-    """验收测试中所有 DISPATCHED 立刻 ConfirmEntry。"""
+    """验收测试中所有 DISPATCHED 立刻 ConfirmEntry。
+
+    保留 dispatched_at 相对顺序：pile_queue_arrived_at 也按相同顺序微秒递增，
+    避免桩内 FIFO 因为同时 confirm 而打乱顺序。
+    """
     dispatched = (
         db.query(ChargingRequest)
         .filter(ChargingRequest.status == RequestStatus.DISPATCHED)
+        .order_by(ChargingRequest.dispatched_at.asc())
         .all()
     )
     if not dispatched:
         return
-    for req in dispatched:
+    for i, req in enumerate(dispatched):
         req.status = RequestStatus.QUEUING_PILE
-        req.confirmed_at = when
-        req.pile_queue_arrived_at = when
+        req.confirmed_at = when + timedelta(microseconds=i)
+        req.pile_queue_arrived_at = when + timedelta(microseconds=i)
     db.flush()
     app_sched.try_dispatch(db)
 
@@ -363,6 +368,32 @@ def _current_fee_of_session(sess: ChargingSession) -> float:
     return round(cf + sf, 2)
 
 
+def _cumulative_kwh_fee(db, req: ChargingRequest):
+    """累计该车在被故障重派之前的所有充电量与费用。
+
+    走 rescheduled_from_id 链向上找到所有前任请求，
+    每一任有 session 就累加 charged_kwh，有 bill 就累加 total_amount。
+    若没有 bill 但有 session（极少见），按当前累计算费用。
+    """
+    total_kwh = 0.0
+    total_fee = 0.0
+    cur_id = req.rescheduled_from_id
+    seen = set()
+    while cur_id is not None and cur_id not in seen:
+        seen.add(cur_id)
+        ancestor = db.get(ChargingRequest, cur_id)
+        if ancestor is None:
+            break
+        if ancestor.session is not None:
+            total_kwh += ancestor.session.charged_kwh
+            from app.models import Bill
+            bill = db.query(Bill).filter(Bill.session_id == ancestor.session.id).first()
+            if bill is not None:
+                total_fee += bill.total_amount
+        cur_id = ancestor.rescheduled_from_id
+    return total_kwh, total_fee
+
+
 def _pile_cars(db, pile: ChargingPile, when: datetime):
     reqs = (
         db.query(ChargingRequest)
@@ -384,12 +415,20 @@ def _pile_cars(db, pile: ChargingPile, when: datetime):
     out = []
     for r in reqs:
         plate = r.vehicle.license_plate
+        # 累计：故障重派的车 = 之前已充 + 当前 session
+        prev_kwh, prev_fee = _cumulative_kwh_fee(db, r)
         if r.status == RequestStatus.CHARGING and r.session is not None:
-            kwh = round(r.session.charged_kwh, 2)
-            fee = _current_fee_of_session(r.session)
-            out.append(f"({plate},{kwh:.2f},{fee:.2f})")
+            cur_kwh = r.session.charged_kwh
+            cur_fee = _current_fee_of_session(r.session)
+            total_kwh = round(prev_kwh + cur_kwh, 2)
+            total_fee = round(prev_fee + cur_fee, 2)
+            out.append(f"({plate},{total_kwh:.2f},{total_fee:.2f})")
         else:
-            out.append(f"({plate},0.00,0.00)")
+            # QUEUING_PILE / DISPATCHED：当前 session 尚未开始，但若是故障重派，
+            # 上任已充进度要显示出来，spec 用户视角应能看到累计已充
+            total_kwh = round(prev_kwh, 2)
+            total_fee = round(prev_fee, 2)
+            out.append(f"({plate},{total_kwh:.2f},{total_fee:.2f})")
     return out
 
 
