@@ -141,7 +141,7 @@ def _validate_entry_token(token: str) -> bool:
 
 def _bill_to_out(bill: Bill) -> BillOut:
     """把 Bill ORM 转 BillOut，附加 spec 必需的会话字段（桩号、起止时间、时长）。"""
-    base = _bill_to_out(bill).model_dump()
+    base = BillOut.model_validate(bill).model_dump()
     sess = bill.session
     if sess is not None:
         base["pile_code"] = sess.pile.pile_code if sess.pile else None
