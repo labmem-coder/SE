@@ -988,8 +988,8 @@
             <div class="fg" style="max-width:150px">
               <label for="sub-mode">充电模式</label>
               <select id="sub-mode">
-                <option value="fast">快充 30kW</option>
-                <option value="slow">慢充 7kW</option>
+                <option value="fast" data-mode="fast">快充 30kW</option>
+                <option value="slow" data-mode="slow">慢充 10kW</option>
               </select>
             </div>
             <div class="fg" style="max-width:140px">
@@ -1545,11 +1545,27 @@ async function loadPileSelects() {
     const opts = piles.map(p =>
       `<option value="${p.pileId}">${p.pileCode} (${p.mode==="fast"?"快充":"慢充"})</option>`).join("");
     ["rep-pile","flt-pile"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
+    refreshModeLabels();
   } catch(e) {
     console.error("loadPileSelects failed", e);
     const guess = ["F1","F2","T1","T2","T3"].map((c,i) => `<option value="${i+1}">${c}</option>`).join("");
     ["rep-pile","flt-pile"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = guess; });
   }
+}
+
+// 根据 /api/piles 的实际功率刷新所有 “快充 XXkW / 慢充 XXkW” 标签
+function refreshModeLabels() {
+  if (!PILES || !PILES.length) return;
+  const fast = PILES.find(p => p.mode === "fast");
+  const slow = PILES.find(p => p.mode === "slow");
+  const fastKw = fast ? fast.powerKw : null;
+  const slowKw = slow ? slow.powerKw : null;
+  document.querySelectorAll('option[data-mode="fast"]').forEach(o => {
+    if (fastKw != null) o.textContent = `快充 ${fastKw}kW`;
+  });
+  document.querySelectorAll('option[data-mode="slow"]').forEach(o => {
+    if (slowKw != null) o.textContent = `慢充 ${slowKw}kW`;
+  });
 }
 
 // ── Badge helpers ──────────────────────────────────────────────
@@ -1902,9 +1918,9 @@ function openModify(id) {
   showModal(`
     <h4>修改充电请求</h4>
     <div class="field"><label>新目标电量 (kWh) — 留空不改</label><input id="mod-target" type="number" min="0.1" step="0.1" placeholder="例如 20"></div>
-    <div class="field"><label>新模式 — 留空不改（改模式将取消原请求重新排队）</label><select id="mod-mode"><option value="">不改</option><option value="fast">快充 30kW</option><option value="slow">慢充 7kW</option></select></div>
+    <div class="field"><label>新模式 — 留空不改（改模式将取消原请求重新排队）</label><select id="mod-mode"><option value="">不改</option><option value="fast" data-mode="fast">快充 30kW</option><option value="slow" data-mode="slow">慢充 10kW</option></select></div>
     <div class="modal-acts"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-pri" id="mod-go">确认</button></div>
-  `, () => { document.getElementById("mod-go").onclick = () => doModify(id); });
+  `, () => { document.getElementById("mod-go").onclick = () => doModify(id); refreshModeLabels(); });
 }
 async function doModify(id) {
   const t = document.getElementById("mod-target").value;

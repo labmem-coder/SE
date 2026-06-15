@@ -168,7 +168,7 @@ def list_piles(db: Session = Depends(get_db)):
     """返回所有充电桩的 id / 编号 / 模式，无需登录。"""
     piles = db.query(ChargingPile).order_by(ChargingPile.id).all()
     return [
-        {"pileId": p.id, "pileCode": p.pile_code, "mode": p.mode.value}
+        {"pileId": p.id, "pileCode": p.pile_code, "mode": p.mode.value, "powerKw": p.power_kw}
         for p in piles
     ]
 
