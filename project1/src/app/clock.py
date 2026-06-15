@@ -1,6 +1,6 @@
 """虚拟时钟 —— 替代 datetime.now() 作为全系统统一时间源。
 
-时钟从当天 8:00 AM 启动，支持可调流速倍率与时间跳跃。
+时钟从当天 06:00 启动，默认流速 0（暂停），通过 +5min / 流速 / 复位 按钮推进。
 所有业务时间（充电进度、会话起止、账单时间等）都以此钟为准。
 """
 from __future__ import annotations
@@ -8,16 +8,29 @@ from __future__ import annotations
 import threading
 from datetime import datetime, timedelta
 
+# 默认初始虚拟时刻：当天 06:00:00
+INITIAL_HOUR = 6
+INITIAL_MINUTE = 0
+INITIAL_SECOND = 0
+DEFAULT_SPEED = 0.0
+
 
 class VirtualClock:
     """线程安全的虚拟时钟单例。"""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        today = datetime.now().date()
-        self._base_virtual: datetime = datetime(today.year, today.month, today.day, 8, 0, 0)
         self._base_real: datetime = datetime.now()
-        self._speed: float = 1.0
+        self._base_virtual: datetime = self._initial_virtual()
+        self._speed: float = DEFAULT_SPEED
+
+    @staticmethod
+    def _initial_virtual() -> datetime:
+        today = datetime.now().date()
+        return datetime(
+            today.year, today.month, today.day,
+            INITIAL_HOUR, INITIAL_MINUTE, INITIAL_SECOND,
+        )
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -48,6 +61,13 @@ class VirtualClock:
             self._base_virtual = current + timedelta(minutes=minutes)
             self._base_real = datetime.now()
 
+    def reset(self) -> None:
+        """复位为初始时间 06:00 + 流速 0。"""
+        with self._lock:
+            self._base_virtual = self._initial_virtual()
+            self._base_real = datetime.now()
+            self._speed = DEFAULT_SPEED
+
     # ── internal ────────────────────────────────────────────────────────────
 
     def _compute_unlocked(self) -> datetime:
@@ -75,3 +95,7 @@ def set_speed(speed: float) -> None:
 
 def advance(minutes: float) -> None:
     _clock.advance(minutes)
+
+
+def reset() -> None:
+    _clock.reset()

@@ -32,10 +32,11 @@ DATABASE_URL = "sqlite:///./charging_station.db"
 # 后台 tick 周期（秒）
 BACKGROUND_TICK_SECONDS = 5
 
-# 演示加速倍率：1 表示真实时间；10 表示真实 1 秒 = 模拟 10 秒
-# 验收标准比例尺 1:10 —— 真实 30 分钟 = 模拟 5 小时
-# 仅影响充电进度推进与超时判定；不影响分时电价的"现实时刻"判定。
-TIME_ACCELERATION = 10.0
+# 演示加速倍率。
+# 现在时间源是 app.clock.VirtualClock，已经能控制流速（0=暂停 / 1× / 10× / …），
+# 所以业务侧的 charged_kwh 计算用 1.0 即可：1 虚拟秒 = 1 秒充电。
+# 实际"加速演示"由 VirtualClock.set_speed() 决定，验收时 +5min 按钮也是 5 虚拟分钟。
+TIME_ACCELERATION = 1.0
 
 # 请求编号前缀
 REQUEST_CODE_PREFIX = "REQ"

@@ -173,19 +173,37 @@ def query_pile_queue_detail(
     advance_active_sessions(db)
     db.commit()
 
+    # 桩在 FAULT 时，把仍挂在它名下的 FAULT_QUEUED 一起返回 —— 与后端 acceptance
+    # 测试在故障桩列下标 "(故障)" 的显示语义对齐。
+    statuses = list(PILE_SLOT_STATUSES)
+    if pile.status == PileStatus.FAULT:
+        statuses.append(RequestStatus.FAULT_QUEUED)
     rows = (
         db.query(ChargingRequest)
         .filter(
             ChargingRequest.assigned_pile_id == pile.id,
-            ChargingRequest.status.in_(PILE_SLOT_STATUSES),
+            ChargingRequest.status.in_(statuses),
         )
         .all()
     )
-    # CHARGING 优先排首位，其余按到达顺序
+    # CHARGING 优先排首位，FAULT_QUEUED 末尾按 priority_time，其余按到达顺序
+    # 同到达时刻（虚拟钟暂停的批量场景）用 dispatched_at 做 tiebreaker，
+    # 保证桩内 FIFO 与派遣顺序一致。
+    far_future = datetime.max
+
     def _key(r: ChargingRequest):
-        charging = 0 if r.status == RequestStatus.CHARGING else 1
+        if r.status == RequestStatus.CHARGING:
+            section = 0
+        elif r.status == RequestStatus.FAULT_QUEUED:
+            section = 2
+        else:
+            section = 1
+        if section == 2:
+            return (section, r.priority_time, far_future)
         arrived = r.pile_queue_arrived_at or r.dispatched_at or r.submitted_at
-        return (charging, arrived)
+        tiebreak = r.dispatched_at or r.submitted_at or far_future
+        return (section, arrived, tiebreak)
+
     rows.sort(key=_key)
 
     now = get_time()

@@ -51,11 +51,24 @@ sys.modules.pop("app.db", None)
 from app import scheduler as app_sched
 from app import fault as app_fault
 from app import pricing as app_pricing
+from app import clock as app_clock
+from app import models as app_models
 from app.routers import user_api as app_user_api
 from app.routers import admin_api as app_admin_api
 
 for m in (app_sched, app_fault, app_pricing, app_user_api, app_admin_api):
     setattr(m, "datetime", _FakeDT)
+
+
+# 同时把 clock.get_time() 也劫持为 SIM_NOW，让 session.last_tick_at 跟着模拟时间走
+def _fake_get_time():
+    return SIM_NOW
+
+
+setattr(app_clock, "get_time", _fake_get_time)
+for m in (app_sched, app_fault, app_pricing, app_user_api, app_admin_api, app_models):
+    if hasattr(m, "get_time"):
+        setattr(m, "get_time", _fake_get_time)
 
 app_config.TIME_ACCELERATION = 1.0
 app_sched.TIME_ACCELERATION = 1.0

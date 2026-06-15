@@ -43,11 +43,26 @@ from app import scheduler as app_sched
 from app import fault as app_fault
 from app import pricing as app_pricing
 from app import config as app_config
+from app import clock as app_clock
+from app import models as app_models
 from app.routers import user_api as app_user_api
 from app.routers import admin_api as app_admin_api
 
 for mod in (app_sched, app_fault, app_pricing, app_user_api, app_admin_api):
     setattr(mod, "datetime", _FakeDateTime)
+
+
+# 同步劫持 clock.get_time() —— 让虚拟时钟也回到 SIM_NOW，否则
+# scheduler 里 session.last_tick_at = get_time() 会得到当前真实日，
+# 与测试 SIM_NOW 跨日，导致 elapsed 为负、charged_kwh 不推进。
+def _fake_get_time():
+    return SIM_NOW
+
+
+setattr(app_clock, "get_time", _fake_get_time)
+for mod in (app_sched, app_fault, app_pricing, app_user_api, app_admin_api, app_models):
+    if hasattr(mod, "get_time"):
+        setattr(mod, "get_time", _fake_get_time)
 
 # 模拟时直接控制时钟，无需加速
 app_config.TIME_ACCELERATION = 1.0

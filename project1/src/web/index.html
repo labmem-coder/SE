@@ -935,6 +935,7 @@
     <div class="time-speed-group">
       <label for="time-speed-sel">⚡ 流速:</label>
       <select id="time-speed-sel" onchange="setTimeSpeed()">
+        <option value="0">⏸ 暂停</option>
         <option value="1">1×</option>
         <option value="10">10×</option>
         <option value="20">20×</option>
@@ -942,10 +943,11 @@
       </select>
     </div>
     <div class="time-advance">
+      <button class="btn-time-jump" onclick="advanceTime(5)" title="向前推进 5 分钟">⏩ +5分</button>
       <button class="btn-time-jump" onclick="advanceTime(10)" title="向前推进 10 分钟">⏩ +10分</button>
       <button class="btn-time-jump" onclick="advanceTime(30)" title="向前推进 30 分钟">⏩ +30分</button>
       <button class="btn-time-jump" onclick="advanceTime(60)" title="向前推进 1 小时">⏩ +1时</button>
-      <button class="btn-time-jump" onclick="advanceTime(180)" title="向前推进 3 小时">⏩ +3时</button>
+      <button class="btn-time-jump" onclick="resetClock()" title="复位至 06:00（暂停）">🔄 复位</button>
     </div>
   </div>
 
@@ -1373,6 +1375,17 @@ async function advanceTime(minutes) {
     // Immediately refresh data to reflect new time state
     await refreshAllData();
   } catch(e) { toast("推进时间失败："+e.message, false); }
+}
+
+async function resetClock() {
+  if (!confirm("确定要把虚拟时钟复位为 06:00 并暂停吗？\n注意：已发生的业务数据不会被清除。")) return;
+  try {
+    const r = await api("/api/clock/reset", {method:"POST"});
+    document.getElementById("time-display").textContent = r.virtual_time.replace("T"," ").slice(0,19);
+    document.getElementById("time-speed-sel").value = String(r.speed);
+    toast("时钟已复位至 06:00（暂停）");
+    await refreshAllData();
+  } catch(e) { toast("复位失败："+e.message, false); }
 }
 
 async function refreshAllData() {

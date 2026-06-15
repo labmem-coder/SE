@@ -34,4 +34,5 @@ def build_queue_info(db: Session, req: ChargingRequest) -> QueueInfo:
         estimatedWaitMinutes=estimate_wait_minutes(db, req),
         assignedPileCode=pile_code,
         pileQueuePosition=pile_queue_position(db, req),
+        dispatchedAt=req.dispatched_at,
     )

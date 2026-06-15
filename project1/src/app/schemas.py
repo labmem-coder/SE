@@ -83,6 +83,7 @@ class QueueInfo(BaseModel):
     estimatedWaitMinutes: Optional[float] = None
     assignedPileCode: Optional[str] = None
     pileQueuePosition: Optional[int] = None   # 在桩排队中的位置（1=正在充电）
+    dispatchedAt: Optional[datetime] = None   # 派遣时刻 —— 客户端按此排序保证 FIFO confirm
 
 
 class SubmitChargeRequestOut(BaseModel):

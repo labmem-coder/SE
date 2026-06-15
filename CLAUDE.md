@@ -25,25 +25,39 @@ python server.py seed                       # create tables, 2 fast + 3 slow pil
 python server.py serve                      # http://127.0.0.1:8000  (Swagger at /docs)
 python server.py serve 0.0.0.0 8765         # custom host/port
 
-python demo_acceptance.py                   # multi-user end-to-end demo (service must be running)
+python demo_acceptance.py                   # HTTP multi-user end-to-end demo (service must be running)
 BASE_URL=http://127.0.0.1:8765 python demo_acceptance.py
+
+python acceptance_test.py                   # in-process acceptance driver against 测试用例.csv
+FAULT_POLICY=priority   python acceptance_test.py     # default — UC §7.1
+FAULT_POLICY=time_order python acceptance_test.py     # UC §7.2
 ```
 
-There is **no test suite** — the project is validated by `demo_acceptance.py` and the manual acceptance script in `docs/acceptance_demo.md`. There is also no linter/formatter configured.
+There is **no unit-test suite**. Validation surfaces:
+- `acceptance_test.py` — drives `scheduler` / `fault` directly, monkey-patches `datetime.utcnow()` to a deterministic clock (no HTTP, no APScheduler), and emits the two `docs/acceptance_test_output_*.csv` snapshots. This is the canonical acceptance harness; run it after any change to scheduling, fault, or billing logic.
+- `demo_acceptance.py` — exercises the real HTTP surface end-to-end against a running server.
+- `docs/acceptance_demo.md` — manual UI walk-through.
+
+No linter/formatter is configured.
 
 Test accounts (all seeded with username == password): `admin`, `alice`, `bob`, `carol`, `dave`.
 
 ## System Constants (fixed by spec, tunable at acceptance)
 
-Centralized in `app/config.py`:
+Centralized in `app/config.py` (also editable at runtime via `PUT /api/admin/config`, see `routers/config_api.py`):
 
-- `FAST_PILE_COUNT=2`, `SLOW_PILE_COUNT=3`, `PILE_QUEUE_CAPACITY=4` (charging + behind-pile queue)
-- `FAST_PILE_POWER_KW=30`, `SLOW_PILE_POWER_KW=7`
+- `FAST_PILE_COUNT=2`, `SLOW_PILE_COUNT=3`, `PILE_QUEUE_CAPACITY=3` (charging + behind-pile queue), `WAITING_AREA_SIZE=10` (等候区 N)
+- `FAST_PILE_POWER_KW=30`, `SLOW_PILE_POWER_KW=10`
 - `ENTRY_CONFIRM_TIMEOUT_SECONDS=300` — 5-min叫号 window (uses real wall time)
+- `BILL_OVERDUE_HOURS=24` — unpaid bill threshold that blocks new submissions
 - `PRICING_SCHEDULE` (time-of-use 谷/平/峰) + `SERVICE_FEE_YUAN_PER_KWH=0.8`
-- `TIME_ACCELERATION=60.0` — **demo speedup only affects charging progress, NOT the 5-min timeout**. So a 15 kWh fast charge finishes in ~30 real seconds, but a dispatched user still has 5 real minutes to ACK.
+- `TIME_ACCELERATION=10.0` — **demo speedup only affects charging progress and session/billing timestamps, NOT the 5-min叫号 timeout** (which always uses real wall time). At 10× a 15 kWh fast charge finishes in ~3 real minutes; TOU rate buckets are still keyed off the wall clock.
 - `BACKGROUND_TICK_SECONDS=5` — APScheduler tick period
+- `FAULT_DISPATCH_POLICY` — `"priority"` (spec §7.1, default) or `"time_order"` (spec §7.2). Both must remain implemented; verifiers pick at acceptance time.
+- `EXTENDED_SCHEDULE_POLICY` — `"normal"` (default), `"multi_short"` (§8.1), `"batch_short"` (§8.2). Optional spec extensions, off by default.
 - Scheduling objective: minimize **完成充电所需时间 = 等待时长 + 自己充电时长** for the dispatched vehicle (NOT total system time). Implemented in `scheduler.estimate_finish_hours`.
+
+`app/clock.py` exposes a process-wide `VirtualClock` singleton that all business code reads as "now." It starts at today 08:00 and is the time source that `TIME_ACCELERATION` multiplies; the admin can scrub or rate-change it via `/api/admin/clock` (see `clock_api.py`). The 5-min ACK timeout intentionally bypasses the virtual clock and uses real `datetime.utcnow()`.
 
 ## Architecture
 
@@ -61,6 +75,9 @@ WAITING ──dispatch──> DISPATCHED ──ConfirmEntry──> QUEUING_PILE 
    │                       │                                                       │
    │ cancel                │ 5-min timeout (real time)                              │ pile fault mid-session
    └──> CANCELLED <────────┘                                                       └──> FAULT_INTERRUPTED + new request
+
+FAULT_QUEUED — special state: cars displaced from a faulted pile under FAULT_DISPATCH_POLICY="time_order".
+              Highest dispatch priority, NOT counted against WAITING_AREA_SIZE, retains original queueNumber.
 ```
 
 `try_dispatch()` (in `app/scheduler.py`) is the single dispatch entry point and is **idempotent** — call it from any event that changes queue/pile state (new request, cancel, completion, fault, fault recovery, background tick). It always: (1) advances active sessions, (2) closes any completed sessions, (3) expires DISPATCHED-but-unconfirmed requests, (4) dispatches per mode picking the pile that minimizes `estimate_finish_hours` for that request, (5) starts the next QUEUING_PILE request at any newly-idle pile.
@@ -69,8 +86,8 @@ Server-side BCE layout inside `app/`:
 
 | Role | Files |
 |---|---|
-| Boundary (HTTP) | `routers/user_api.py` (UC_01..07), `routers/admin_api.py` (UC_08..11), `auth.py`, `schemas.py` |
-| Control (services) | `scheduler.py` (dispatch + session advancement), `pricing.py` (TOU billing), `fault.py` (UC_09/UC_10), `views.py` (queue view assembly), `tick.py` |
+| Boundary (HTTP) | `routers/user_api.py` (UC_01..07), `routers/admin_api.py` (UC_08..11), `routers/clock_api.py` (virtual clock control), `routers/config_api.py` (runtime knobs), `auth.py`, `schemas.py` |
+| Control (services) | `scheduler.py` (dispatch + session advancement), `pricing.py` (TOU billing), `fault.py` (UC_09/UC_10), `views.py` (queue view assembly), `tick.py`, `clock.py` (VirtualClock singleton) |
 | Entity (ORM) | `models.py` |
 | Infrastructure | `db.py`, `config.py`, `seed.py`, `main.py`, `server.py` |
 
@@ -87,10 +104,12 @@ Operation contracts in `hw1_report_v3.md §2.2` define the system event names. T
 | UC_05 | `ConfirmEntry(requestId)` | `POST /api/requests/{id}/confirm` |
 | UC_06 | `ReportDeviceAbnormal(userId, pileId, description)` | `POST /api/reports` |
 | UC_07 | `QueryBill(requestId)` + `ConfirmPayment(billId, payChannel)` | `GET /api/bills/by-request/{id}`, `POST /api/bills/{id}/pay` |
-| UC_08 | `QueryPileStatus()` | `GET /api/admin/piles` |
+| UC_08 | `QueryPileStatus()` | `GET /api/admin/piles`; per-pile queue detail at `GET /api/admin/piles/{id}/queue`; abnormal-report inbox at `GET /api/admin/abnormal-reports` |
 | UC_09 | `ConfirmPileFault(pileId, faultType, faultTime, sourceReportId)` | `POST /api/admin/piles/{id}/fault` |
 | UC_10 | `ResumePile(pileId)` | `POST /api/admin/piles/{id}/resume` |
 | UC_11 | `QueryOperationReport(dateRange)` | `GET /api/admin/reports?from=&to=` |
+| —     | Runtime config (fault policy, extended schedule, pile counts/power, queue/waiting sizes) | `GET /api/admin/config`, `PUT /api/admin/config` |
+| —     | Virtual clock control | `GET /api/admin/clock`, `POST /api/admin/clock/speed`, `POST /api/admin/clock/advance` |
 
 ## Domain Model (18 classes — see `media/generated/domain_model.png`)
 
@@ -115,8 +134,10 @@ These are testable behaviors — when changing scheduling, billing, or fault cod
 4. **Overdue bill blocks new requests**: `SubmitChargeRequest` precondition rejects users with unpaid + overdue bills (`user_api._user_has_overdue_unpaid_bill`, threshold = `BILL_OVERDUE_HOURS`).
 5. **Release-on-completion**: the pile is freed the moment charging ends, NOT when the bill is paid (`_complete_session` + `_maybe_start_next_at_pile`). Payment is asynchronous.
 6. **Fault rescheduling preserves priority**: when a pile faults mid-session, the in-flight session is marked `INTERRUPTED` with a stage bill snapshot, and a NEW request for the **remaining** kWh inherits the original `priority_time` so it keeps its place in the same-mode waiting queue (`fault.confirm_pile_fault`).
-7. **Abnormal report ≠ fault**: `ReportDeviceAbnormal` only creates an `AbnormalReport` row. Only `ConfirmPileFault` by an admin transitions a pile to `FAULT`.
-8. **TOU billing must cross rate boundaries correctly**: `pricing.calculate_charging_fee` segments the session by clock hour against `PRICING_SCHEDULE`; bills must always reference both the TOU rate and the flat service fee.
+7. **`FAULT_DISPATCH_POLICY` semantics**: `"priority"` pauses the waiting queue and drains the faulted pile's displaced cars first (§7.1); `"time_order"` merges them with same-mode pile queues by `queueNumber` (§7.2). Both branches live in `fault.py` / `scheduler.py` — keep them in sync.
+8. **Abnormal report ≠ fault**: `ReportDeviceAbnormal` only creates an `AbnormalReport` row. Only `ConfirmPileFault` by an admin transitions a pile to `FAULT`.
+9. **TOU billing must cross rate boundaries correctly**: `pricing.calculate_charging_fee` segments the session by clock hour against `PRICING_SCHEDULE`; bills must always reference both the TOU rate and the flat service fee.
+10. **Bill response is spec-shaped**: `BillOut` must include `pile_code`, `started_at`, `ended_at`, `charging_duration_hours` derived from the linked `ChargingSession` — populated in `user_api._bill_to_out`, do not bypass it.
 
 ## Conventions
 
