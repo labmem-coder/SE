@@ -271,10 +271,9 @@ def _refresh_pile_status(db: Session, pile: ChargingPile) -> None:
 def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int:
     """5 分钟未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。
 
-    注意：超时判定使用真实时间（datetime.now），不跟随虚拟时钟，确保
-    用户始终有完整的 5 真实分钟来响应叫号。
+    业务时间统一使用虚拟时钟；否则调度时间与 UI 展示时间混用会导致负等待时长。
     """
-    now = now or datetime.now()
+    now = now or get_time()
     cutoff = now - timedelta(seconds=ENTRY_CONFIRM_TIMEOUT_SECONDS)
     timed_out = (
         db.query(ChargingRequest)
@@ -292,6 +291,10 @@ def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int
         req.status = RequestStatus.CANCELLED
         req.cancelled_at = now
         req.assigned_pile_id = None
+        req.pile_queue_arrived_at = None
+        req.dispatched_at = None
+        req.confirmed_at = None
+        req.batch_plan_order = None
         cancelled += 1
 
     for pid in affected_piles:
@@ -385,9 +388,7 @@ def _dispatch_one(db: Session, req: ChargingRequest, microsecond_offset: int = 0
     if best is None:
         return False
     _, chosen_pile = best
-    # dispatched_at 使用真实时间，因为超时检查（handle_dispatch_timeouts）
-    # 基于真实 wall-clock 时间，确保用户有完整 5 分钟响应窗口
-    now = datetime.now() + timedelta(microseconds=microsecond_offset)
+    now = get_time() + timedelta(microseconds=microsecond_offset)
     req.status = RequestStatus.DISPATCHED
     req.assigned_pile_id = chosen_pile.id
     req.dispatched_at = now
@@ -651,7 +652,7 @@ def _apply_assignments(db: Session, assignments) -> int:
     """统一回填 DISPATCHED 状态 + 微秒级 dispatched_at 单调递增。"""
     if not assignments:
         return 0
-    now = datetime.now()
+    now = get_time()
     # 同机内按 position 排序保证微秒递增 = 桩内 FIFO
     by_pile: dict[int, list] = {}
     for car, info, pos in assignments:
@@ -804,7 +805,7 @@ def _drain_planned_batch(db: Session) -> int:
        会话 autoflush=False，故每桩只查一次 planned 列表，按容量切片取头部。"""
     count = 0
     offset = 0
-    now = datetime.now()
+    now = get_time()
     for pile in (
         db.query(ChargingPile)
         .filter(ChargingPile.status != PileStatus.FAULT)

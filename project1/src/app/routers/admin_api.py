@@ -34,7 +34,6 @@ from ..models import (
 )
 from ..scheduler import (
     PILE_SLOT_STATUSES,
-    advance_active_sessions,
     try_dispatch,
 )
 from ..schemas import (
@@ -62,7 +61,6 @@ def query_pile_status(
     db: Session = Depends(get_db),
     _: User = Depends(admin_required),
 ) -> QueryPileStatusOut:
-    advance_active_sessions(db)
     try_dispatch(db)
     db.commit()
 
@@ -170,7 +168,7 @@ def query_pile_queue_detail(
     if pile is None:
         raise HTTPException(status_code=404, detail="pile not found")
 
-    advance_active_sessions(db)
+    try_dispatch(db)
     db.commit()
 
     # 桩在 FAULT 时，把仍挂在它名下的 FAULT_QUEUED 一起返回 —— 与后端 acceptance
@@ -186,6 +184,15 @@ def query_pile_queue_detail(
         )
         .all()
     )
+    now = get_time()
+
+    def _safe_time(value: datetime | None, fallback: datetime) -> datetime:
+        if value is None:
+            return fallback if fallback <= now else now
+        if value > now:
+            return fallback if fallback <= now else now
+        return value
+
     # CHARGING 优先排首位，FAULT_QUEUED 末尾按 priority_time，其余按到达顺序
     # 同到达时刻（虚拟钟暂停的批量场景）用 dispatched_at 做 tiebreaker，
     # 保证桩内 FIFO 与派遣顺序一致。
@@ -199,24 +206,38 @@ def query_pile_queue_detail(
         else:
             section = 1
         if section == 2:
-            return (section, r.priority_time, far_future)
-        arrived = r.pile_queue_arrived_at or r.dispatched_at or r.submitted_at
-        tiebreak = r.dispatched_at or r.submitted_at or far_future
+            return (section, _safe_time(r.priority_time, r.submitted_at), far_future)
+        arrived = _safe_time(
+            r.pile_queue_arrived_at or r.dispatched_at or r.submitted_at,
+            r.submitted_at,
+        )
+        tiebreak = _safe_time(r.dispatched_at or r.submitted_at, arrived)
         return (section, arrived, tiebreak)
 
     rows.sort(key=_key)
 
-    now = get_time()
+    def _duration_minutes(r: ChargingRequest) -> float:
+        start = (
+            r.pile_queue_arrived_at
+            or r.confirmed_at
+            or r.dispatched_at
+            or r.submitted_at
+        )
+        end = now
+        if r.status == RequestStatus.CHARGING and r.session is not None:
+            end = r.session.started_at or now
+        seconds = (end - start).total_seconds()
+        return round(max(seconds, 0.0) / 60.0, 2)
+
     vehicles: list[PileQueuedVehicle] = []
     for r in rows:
-        duration_min = (now - r.submitted_at).total_seconds() / 60.0
         vehicles.append(
             PileQueuedVehicle(
                 userId=r.user_id,
                 licensePlate=r.vehicle.license_plate,
                 batteryCapacityKwh=r.vehicle.battery_capacity_kwh,
                 requestedAmountKwh=r.target_amount_kwh,
-                queueDurationMinutes=round(duration_min, 2),
+                queueDurationMinutes=_duration_minutes(r),
                 status=r.status,
                 queueNumber=r.queue_number,
             )

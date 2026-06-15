@@ -381,8 +381,8 @@ def query_queue_status(
     req = db.get(ChargingRequest, request_id)
     if req is None or req.user_id != user.id:
         raise HTTPException(status_code=404, detail="request not found")
-    # 顺手推进会话进度，使展示更"实时"
-    advance_active_sessions(db)
+    # 顺手推进会话进度与叫号超时，使展示与后台 tick 使用同一套虚拟时间。
+    try_dispatch(db)
     db.commit()
     db.refresh(req)
     return build_queue_info(db, req)
@@ -393,7 +393,7 @@ def list_my_requests(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> list[QueueInfo]:
-    advance_active_sessions(db)
+    try_dispatch(db)
     db.commit()
     rows = (
         db.query(ChargingRequest)
@@ -443,6 +443,9 @@ def update_charge_request(
         req.cancelled_at = now
         req.assigned_pile_id = None
         req.pile_queue_arrived_at = None
+        req.dispatched_at = None
+        req.confirmed_at = None
+        req.batch_plan_order = None
         db.flush()
 
         new_target = payload.newTargetAmount if payload.newTargetAmount is not None else req.target_amount_kwh
@@ -538,6 +541,9 @@ def cancel_charge_request(
     req.cancelled_at = now
     req.assigned_pile_id = None
     req.pile_queue_arrived_at = None
+    req.dispatched_at = None
+    req.confirmed_at = None
+    req.batch_plan_order = None
     db.flush()
 
     if affected_pile_id is not None:

@@ -151,6 +151,7 @@ def confirm_pile_fault(
         r.pile_queue_arrived_at = None
         r.dispatched_at = None
         r.confirmed_at = None
+        r.batch_plan_order = None
         # priority_time 不变，保留原始优先级
         rescheduled_count += 1
 
@@ -180,6 +181,7 @@ def confirm_pile_fault(
             r.pile_queue_arrived_at = None
             r.dispatched_at = None
             r.confirmed_at = None
+            r.batch_plan_order = None
             rescheduled_count += 1
         db.flush()
     # 不管哪种策略，Phase 1 (FAULT_QUEUED) 都按 priority_time 派出，再开等候区
@@ -236,6 +238,7 @@ def resume_pile(db: Session, pile_id: int) -> None:
             r.pile_queue_arrived_at = None
             r.dispatched_at = None
             r.confirmed_at = None
+            r.batch_plan_order = None
         db.flush()
 
     try_dispatch(db)

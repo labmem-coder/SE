@@ -9,6 +9,7 @@ venv/
 
 # SQLite database (runtime data)
 *.db
+project1/src/*.db
 
 # IDE
 .vscode/
