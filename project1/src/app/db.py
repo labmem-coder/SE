@@ -25,6 +25,17 @@ def init_db() -> None:
     # 重要：必须先导入 models 让 Base 注册所有 mapper。
     from . import models  # noqa: F401
     Base.metadata.create_all(engine)
+    _light_migrate()
+
+
+def _light_migrate() -> None:
+    """create_all 不会给现有表加列；这里检查并补齐新加的列。"""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(charging_requests)"))}
+        if "batch_plan_order" not in cols:
+            conn.execute(text("ALTER TABLE charging_requests ADD COLUMN batch_plan_order INTEGER"))
+            conn.commit()
 
 
 def get_db() -> Iterator[Session]:

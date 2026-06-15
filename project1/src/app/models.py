@@ -192,6 +192,11 @@ class ChargingRequest(Base):
         ForeignKey("charging_requests.id"), nullable=True
     )
 
+    # §8.2 batch_short 专用：批量调度时该请求在所分配桩内的计划序号（0-indexed）。
+    # 非 batch_short 模式下保持 NULL；plan 时和 assigned_pile_id 一起写，
+    # 派发到 DISPATCHED/CHARGING 后保留，方便后续 drain 时严格按计划顺序。
+    batch_plan_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     user: Mapped[User] = relationship(back_populates="requests")
     vehicle: Mapped[Vehicle] = relationship(back_populates="requests")
     assigned_pile: Mapped[Optional[ChargingPile]] = relationship(back_populates="requests")

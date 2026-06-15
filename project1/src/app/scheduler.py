@@ -324,10 +324,14 @@ def try_dispatch(db: Session) -> int:
     dispatched_total = 0
 
     if EXTENDED_SCHEDULE_POLICY == "batch_short":
-        # 8.2 批量：仅当全部车位被占满才触发
-        if _batch_full(db):
-            dispatched_total += _dispatch_batch_mixed(db)
-        # 否则按 normal 兜底
+        # 8.2 批量：先把已被纳入"当前批"的计划车按计划顺序滴灌入桩。
+        dispatched_total += _drain_planned_batch(db)
+        # 触发条件：到站车辆 ≥ 充电区 + 等候区全部车位 → 把尚未规划的等候车
+        # 一次性最优规划到全部桩上（无 per-pile 上限），让 ∑Cj 真正含全部 K 辆。
+        if _batch_full(db) and _has_unplanned_waiting(db):
+            _plan_batch(db)
+            dispatched_total += _drain_planned_batch(db)
+        # 未达批量触发时维持 normal 兜底，避免空场空桩造成系统空转
         if dispatched_total == 0:
             for mode in (ChargeMode.FAST, ChargeMode.SLOW):
                 dispatched_total += _dispatch_mode(db, mode)
@@ -726,20 +730,101 @@ def _batch_full(db: Session) -> bool:
     return in_system >= total_capacity
 
 
-def _dispatch_batch_mixed(db: Session) -> int:
-    """spec §8.2：跨模式最优分配 —— 任意车可去任意桩。"""
-    pile_info = _eligible_piles(db, mode=None)
-    if not pile_info:
-        return 0
+def _has_unplanned_waiting(db: Session) -> bool:
+    return (
+        db.query(ChargingRequest)
+        .filter(
+            ChargingRequest.status == RequestStatus.WAITING,
+            ChargingRequest.batch_plan_order.is_(None),
+        )
+        .first()
+        is not None
+    )
+
+
+def _eligible_piles_unbounded(db: Session, K: int):
+    """像 _eligible_piles 一样，但每桩的容量上限放宽到 K：
+       桩内 FIFO 的物理容量只在 drain 时受限，规划阶段允许给桩排进任意多辆车。"""
+    info = []
+    for p in (
+        db.query(ChargingPile)
+        .filter(ChargingPile.status != PileStatus.FAULT)
+        .order_by(ChargingPile.id)
+        .all()
+    ):
+        info.append({
+            "pile": p,
+            "free": K,
+            "wait_h": pile_queue_wait_hours(db, p),
+            "power": p.power_kw,
+        })
+    return info
+
+
+def _plan_batch(db: Session) -> int:
+    """§8.2：把当前所有未规划的 WAITING 车一次性最优地分配到全部桩，
+       写入 (assigned_pile_id, batch_plan_order)。本身不改变 status。
+
+       规划目标：全部 K 辆车的 ∑Cj 最小（含尚未进入 pile FIFO 的"队尾"）。
+       桩内 SPT、桩间重排不等式、partition 暴搜 → P/Q‖∑Cj 精确最优。"""
     waiting = (
         db.query(ChargingRequest)
-        .filter(ChargingRequest.status == RequestStatus.WAITING)
+        .filter(
+            ChargingRequest.status == RequestStatus.WAITING,
+            ChargingRequest.batch_plan_order.is_(None),
+        )
         .order_by(ChargingRequest.priority_time.asc())
         .all()
     )
     if not waiting:
         return 0
+    pile_info = _eligible_piles_unbounded(db, K=len(waiting))
+    if not pile_info:
+        return 0
     assignments = _optimal_assignment(pile_info, waiting)
-    # 跨模式时 car.mode 可能与 pile.mode 不一致 —— 这是 spec §8.2 明确允许的，
-    # 但 car.mode 仍保留原始模式（计费/统计仍按桩功率走，无影响）
-    return _apply_assignments(db, assignments)
+    for car, info, pos in assignments:
+        car.assigned_pile_id = info["pile"].id
+        car.batch_plan_order = pos
+    db.flush()
+    return len(assignments)
+
+
+def _drain_planned_batch(db: Session) -> int:
+    """§8.2：把已被 _plan_batch 写好计划的 WAITING 车按计划顺序灌进 DISPATCHED，
+       gated by 桩 FIFO 容量。每桩一次只灌满容量内可容纳的若干辆。
+
+       会话 autoflush=False，故每桩只查一次 planned 列表，按容量切片取头部。"""
+    count = 0
+    offset = 0
+    now = datetime.now()
+    for pile in (
+        db.query(ChargingPile)
+        .filter(ChargingPile.status != PileStatus.FAULT)
+        .order_by(ChargingPile.id)
+        .all()
+    ):
+        used = pile_slot_count(db, pile.id)
+        free = pile.queue_capacity - used
+        if free <= 0:
+            continue
+        planned = (
+            db.query(ChargingRequest)
+            .filter(
+                ChargingRequest.status == RequestStatus.WAITING,
+                ChargingRequest.assigned_pile_id == pile.id,
+                ChargingRequest.batch_plan_order.is_not(None),
+            )
+            .order_by(ChargingRequest.batch_plan_order.asc())
+            .limit(free)
+            .all()
+        )
+        for req in planned:
+            req.status = RequestStatus.DISPATCHED
+            req.dispatched_at = now + timedelta(microseconds=offset)
+            if pile.status == PileStatus.AVAILABLE:
+                pile.status = PileStatus.OCCUPIED
+            offset += 1
+            count += 1
+    if count:
+        db.flush()
+    return count

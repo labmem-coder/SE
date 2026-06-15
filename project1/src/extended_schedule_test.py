@@ -173,15 +173,106 @@ def snapshot(db):
     return out
 
 
+def full_plan_snapshot(db):
+    """§8.2 专用：把全部 batch_plan_order != NULL 的车按 (assigned_pile_id, batch_plan_order)
+       排好，返回 {pile_code: [(plate, kwh), ...]}。包含 WAITING 也包含已派出去的。"""
+    out = {}
+    for pile in db.query(ChargingPile).order_by(ChargingPile.id).all():
+        rows = (
+            db.query(ChargingRequest)
+            .filter(
+                ChargingRequest.assigned_pile_id == pile.id,
+                ChargingRequest.batch_plan_order.is_not(None),
+            )
+            .order_by(ChargingRequest.batch_plan_order.asc())
+            .all()
+        )
+        out[pile.pile_code] = [(r.vehicle.license_plate, r.target_amount_kwh) for r in rows]
+    return out
+
+
+def normal_full_simulate(initial_cars, fast_piles, slow_piles, fast_kw, slow_kw, fast_cap, slow_cap):
+    """对 normal 策略做完全模拟：所有车按 priority 派到同模式桩；
+       桩 FIFO 满时排队等空位。返回 {pile_code: [(plate, kwh), ...]} 按桩 FIFO 全部顺序。
+
+       initial_cars: [(plate, kwh, mode, priority_idx)]  按 priority_idx 升序送入
+    """
+    pile_caps = {**{p: fast_cap for p in fast_piles}, **{p: slow_cap for p in slow_piles}}
+    pile_kw = {**{p: fast_kw for p in fast_piles}, **{p: slow_kw for p in slow_piles}}
+    pile_seq = {p: [] for p in fast_piles + slow_piles}  # 派遣顺序
+
+    def candidate_piles(mode):
+        return fast_piles if mode == "fast" else slow_piles
+
+    def finish_time(pile, idx):
+        """该桩第 idx 号车的完工时刻（在当前 pile_seq 下）"""
+        cumulative = 0.0
+        for k in range(idx + 1):
+            cumulative += pile_seq[pile][k][1] / pile_kw[pile]
+        return cumulative
+
+    def best_pile_for(mode, kwh):
+        """模拟 _dispatch_one：选当前队列下"我加入后完工时间最早"的桩。"""
+        best = None
+        for pile in candidate_piles(mode):
+            wait = sum(c[1] for c in pile_seq[pile]) / pile_kw[pile]
+            charge = kwh / pile_kw[pile]
+            ft = wait + charge
+            if best is None or ft < best[0]:
+                best = (ft, pile)
+        return best[1] if best else None
+
+    # 第一波：填满每桩到 FIFO 容量
+    leftover = []
+    for plate, kwh, mode, _ in initial_cars:
+        target = best_pile_for(mode, kwh)
+        if target and len(pile_seq[target]) < pile_caps[target]:
+            pile_seq[target].append((plate, kwh))
+        else:
+            leftover.append((plate, kwh, mode))
+
+    # 后续：每当任一桩中某车完工，腾出 FIFO 槽 → leftover 中的下一辆同模式车进入
+    # （priority 顺序）
+    # 模拟思路：用 events 表示每桩"释放第 k 个槽"的时刻
+    # release_time[pile][k] = pile 上第 (k+1) 辆车完工时间（同模式 leftover 第 N+1 辆才能上）
+    # 我们贪心：按时间顺序处理释放事件，每次放 leftover 队首匹配模式的车
+    leftover_fast = [c for c in leftover if c[2] == "fast"]
+    leftover_slow = [c for c in leftover if c[2] == "slow"]
+
+    def process_leftover(piles, fifo_cap, lo):
+        events = []
+        for pile in piles:
+            for k in range(min(fifo_cap, len(pile_seq[pile]))):
+                events.append((finish_time(pile, k), pile))
+        events.sort()
+        for t, pile in events:
+            if not lo:
+                break
+            plate, kwh, _m = lo.pop(0)
+            pile_seq[pile].append((plate, kwh))
+            # 派进去后，下一次它释放槽的时间 = 它自己完工
+            new_idx = len(pile_seq[pile]) - 1
+            events.append((finish_time(pile, new_idx), pile))
+            events.sort()
+
+    process_leftover(fast_piles, fast_cap, leftover_fast)
+    process_leftover(slow_piles, slow_cap, leftover_slow)
+    return pile_seq
+
+
 def sum_finish_hours(state_dict, power_map):
-    """给定每桩的派车列表，按入桩顺序累加每辆车的 finish time，并求和。"""
+    """给定每桩的派车列表，按入桩顺序累加每辆车的 finish time，并求和。
+
+    支持 (plate, kwh) 与 (plate, kwh, role) 两种 tuple 形式。
+    """
     total = 0.0
     detail = []
     for pile_code, cars in state_dict.items():
         if pile_code not in power_map:
             continue
         cumulative = 0.0
-        for plate, target, _ in cars:
+        for car in cars:
+            plate, target = car[0], car[1]
             cumulative += target / power_map[pile_code]
             total += cumulative
             detail.append((plate, pile_code, round(cumulative, 3)))
@@ -305,72 +396,181 @@ CASE_8_2_DESC = """
 """
 
 
-def run_case_8_2(policy: str):
-    """policy ∈ {'normal', 'batch_short'}"""
+SIZES_25 = (
+    [("F", 10)] * 5
+    + [("T", 10)] * 5
+    + [("F", 30)] * 3
+    + [("T", 30)] * 2
+    + [("F", 60)] * 3
+    + [("T", 60)] * 2
+    + [("F", 100)] * 3
+    + [("T", 100)] * 2
+)
+
+
+def run_case_8_2_batch_short():
+    """§8.2 batch_short：25 辆触发批量调度，返回 full plan {pile_code: [(plate, kwh)…]}。"""
     reset_world()
-    app_config.EXTENDED_SCHEDULE_POLICY = policy
-    app_sched.EXTENDED_SCHEDULE_POLICY = policy
+    app_config.EXTENDED_SCHEDULE_POLICY = "batch_short"
+    app_sched.EXTENDED_SCHEDULE_POLICY = "batch_short"
 
     base = datetime(2026, 6, 14, 6, 0, 0)
     _set_now(base)
-
     with SessionLocal() as db:
-        # 25 辆全 WAITING（5 桩 × 3 + 等候区 10 = 25）
-        sizes_modes = (
-            [("F", 10)] * 5    # V1-V5 小快充
-            + [("T", 10)] * 5  # V6-V10 小慢充
-            + [("F", 30)] * 3  # V11-V13 中快充
-            + [("T", 30)] * 2  # V14-V15 中慢充
-            + [("F", 60)] * 3  # V16-V18 大快充
-            + [("T", 60)] * 2  # V19-V20 大慢充
-            + [("F", 100)] * 3  # V21-V23 巨快充
-            + [("T", 100)] * 2  # V24-V25 巨慢充
-        )
-        for i, (m, kwh) in enumerate(sizes_modes, start=1):
+        for i, (m, kwh) in enumerate(SIZES_25, start=1):
             mode = ChargeMode.FAST if m == "F" else ChargeMode.SLOW
-            submit_waiting(
-                db, f"V{i}", mode, kwh,
-                base + timedelta(minutes=i),
-            )
+            submit_waiting(db, f"V{i}", mode, kwh, base + timedelta(minutes=i))
         db.commit()
-
         _set_now(base + timedelta(hours=1))
         app_sched.try_dispatch(db)
-        auto_confirm(db, base + timedelta(hours=1))
         db.commit()
+        plan = full_plan_snapshot(db)
+    return plan
 
-        state = snapshot(db)
-        # 统计剩余 WAITING
-        leftover = db.query(ChargingRequest).filter(
-            ChargingRequest.status == RequestStatus.WAITING
-        ).count()
-    return state, leftover
+
+def normal_full_plan_25():
+    """对 normal 策略：纯算法模拟完整 25 辆派遣（含 leftover 接力）。"""
+    initial = [
+        (f"V{i+1}", kwh, "fast" if m == "F" else "slow", i + 1)
+        for i, (m, kwh) in enumerate(SIZES_25)
+    ]
+    return normal_full_simulate(
+        initial,
+        fast_piles=["F1", "F2"],
+        slow_piles=["T1", "T2", "T3"],
+        fast_kw=30.0, slow_kw=10.0,
+        fast_cap=PILE_QUEUE_CAPACITY, slow_cap=PILE_QUEUE_CAPACITY,
+    )
 
 
 def case_8_2():
     print(CASE_8_2_DESC)
     power_map = {"F1": 30.0, "F2": 30.0, "T1": 10.0, "T2": 10.0, "T3": 10.0}
 
-    sums = {}
-    for label, policy in [("normal（按模式分）", "normal"), ("batch_short（spec §8.2）", "batch_short")]:
-        print(f"─── 跑：{label} ───")
-        state, leftover = run_case_8_2(policy)
-        for p in ("F1", "F2", "T1", "T2", "T3"):
-            items = []
-            for plate, target, role in state.get(p, []):
-                items.append(f"{plate}({target}度,{role})")
-            print(f"  {p}: {', '.join(items) or '-'}")
-        s, _ = sum_finish_hours(state, power_map)
-        sums[policy] = s
-        print(f"  已派 SUM(finish) = {s} h")
-        print(f"  剩余 WAITING = {leftover} 辆")
-        print()
+    print("─── 跑 1：normal 策略（按模式硬分 + priority 兜底，模拟全 25 辆） ───")
+    plan_normal = normal_full_plan_25()
+    for p in ("F1", "F2", "T1", "T2", "T3"):
+        items = [f"{plate}({kwh})" for plate, kwh in plan_normal.get(p, [])]
+        print(f"  {p}: {' → '.join(items) or '-'}")
+    sum_n, _ = sum_finish_hours(plan_normal, power_map)
+    print(f"  全 25 辆 ∑Cj = {sum_n} h\n")
 
-    saved = round(sums["normal"] - sums["batch_short"], 3)
+    print("─── 跑 2：batch_short 策略（spec §8.2 全局最优 ∑Cj） ───")
+    plan_ext = run_case_8_2_batch_short()
+    for p in ("F1", "F2", "T1", "T2", "T3"):
+        items = [f"{plate}({kwh})" for plate, kwh in plan_ext.get(p, [])]
+        print(f"  {p}: {' → '.join(items) or '-'}")
+    sum_e, _ = sum_finish_hours(plan_ext, power_map)
+    print(f"  全 25 辆 ∑Cj = {sum_e} h\n")
+
+    saved = round(sum_n - sum_e, 3)
     verdict = "✓ §8.2 优于 normal" if saved > 0.001 else ("≈ 持平" if abs(saved) < 0.001 else "✗ 反常")
-    print(f">>> 差距：normal {sums['normal']}h - §8.2 {sums['batch_short']}h = 省时 {saved}h {verdict}")
-    print(">>> 观察：§8.2 跨模式分配 + SPT 桩内顺序，更高效地利用全部 5 个桩。\n")
+    print(f">>> 差距：normal {sum_n}h - §8.2 {sum_e}h = 省时 {saved}h {verdict}")
+    print(">>> 说明：现在 ∑Cj 覆盖【全部 25 辆】（含 10 辆按 plan 接续入桩位置）。\n")
     return saved > 0.001
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# 暴力枚举最优性验证（K 较小时）
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def brute_force_optimal(cars_kwh: list[float], pile_kw: list[float]):
+    """枚举所有 (车→桩) 分配 + 每桩内 SPT，返回最小 ∑Cj。
+
+    cars_kwh: K 辆车的电量
+    pile_kw : m 个桩的功率
+    复杂度 m^K * K log K；K ≤ 8、m ≤ 5 时仍可承受。
+    """
+    K = len(cars_kwh)
+    m = len(pile_kw)
+    best = float("inf")
+    best_assign = None
+    # 用 itertools.product 枚举 m^K
+    from itertools import product
+    for assign in product(range(m), repeat=K):
+        per_pile = [[] for _ in range(m)]
+        for i, p in enumerate(assign):
+            per_pile[p].append(cars_kwh[i])
+        total = 0.0
+        for j, group in enumerate(per_pile):
+            group.sort()  # SPT
+            cum = 0.0
+            for kwh in group:
+                cum += kwh / pile_kw[j]
+                total += cum
+        if total < best:
+            best = total
+            best_assign = assign
+    return best, best_assign
+
+
+def case_brute_force_8_2():
+    """对小规模实例：把 batch_short 的全局最优与暴力枚举对比。"""
+    print("\n═══════════════════════════════════════════════════════════════════════")
+    print("  暴力枚举验证 §8.2 最优性（K=8 辆 / m=4 桩，跨模式）")
+    print("═══════════════════════════════════════════════════════════════════════")
+    # 8 辆车混合电量，跨快/慢
+    cars = [10.0, 10.0, 30.0, 30.0, 60.0, 60.0, 100.0, 100.0]
+    # 4 桩：2 快 + 2 慢
+    pile_kw_list = [30.0, 30.0, 10.0, 10.0]
+    # 重置数据库到这套小配置
+    from app.db import engine as _eng
+    _eng.dispose()
+    if os.path.exists(DB_FILE):
+        os.remove(DB_FILE)
+    init_db()
+    with SessionLocal() as db:
+        for i, kw in enumerate(pile_kw_list, 1):
+            mode = ChargeMode.FAST if kw >= 30 else ChargeMode.SLOW
+            code = f"F{i}" if mode == ChargeMode.FAST else f"T{i-2}"
+            db.add(ChargingPile(pile_code=code, mode=mode, power_kw=kw, queue_capacity=10))
+        u = User(username="brute", password_hash=hash_password("brute"), is_admin=True)
+        db.add(u); db.flush()
+        for i in range(1, len(cars) + 1):
+            db.add(Vehicle(license_plate=f"B{i}", owner_id=u.id, battery_capacity_kwh=60.0))
+        db.commit()
+
+    app_config.EXTENDED_SCHEDULE_POLICY = "batch_short"
+    app_sched.EXTENDED_SCHEDULE_POLICY = "batch_short"
+    base = datetime(2026, 6, 14, 6, 0, 0)
+    _set_now(base)
+    with SessionLocal() as db:
+        # 触发条件：到站车 ≥ 4*10 + 10 = 50（默认 WAITING_AREA_SIZE=10）。
+        # 我们用 batch_short 触发不了，那就直接调 _plan_batch 做规划。
+        for i, kwh in enumerate(cars, 1):
+            mode = ChargeMode.FAST if i % 2 == 1 else ChargeMode.SLOW
+            submit_waiting(db, f"B{i}", mode, kwh, base + timedelta(seconds=i))
+        db.commit()
+        app_sched._plan_batch(db)
+        db.commit()
+        # 提取 plan
+        my_assign = []
+        my_sum = 0.0
+        per_pile_my = {}
+        for pile in db.query(ChargingPile).order_by(ChargingPile.id).all():
+            rows = (
+                db.query(ChargingRequest)
+                .filter(ChargingRequest.assigned_pile_id == pile.id,
+                        ChargingRequest.batch_plan_order.is_not(None))
+                .order_by(ChargingRequest.batch_plan_order.asc())
+                .all()
+            )
+            per_pile_my[pile.pile_code] = [(r.vehicle.license_plate, r.target_amount_kwh) for r in rows]
+            cum = 0.0
+            for r in rows:
+                cum += r.target_amount_kwh / pile.power_kw
+                my_sum += cum
+                my_assign.append((r.vehicle.license_plate, pile.pile_code))
+    print(f"  我的 plan: {per_pile_my}")
+    print(f"  我的 ∑Cj = {round(my_sum,4)}")
+
+    bf_sum, bf_assign = brute_force_optimal(cars, pile_kw_list)
+    print(f"  暴力枚举最优 ∑Cj = {round(bf_sum,4)}")
+    diff = round(my_sum - bf_sum, 4)
+    ok = abs(diff) < 1e-6
+    print(f"  差 = {diff} h   →   {'✓ 我的算法达到最优' if ok else '✗ 不是最优（diff > 0）'}")
+    return ok
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -384,9 +584,11 @@ if __name__ == "__main__":
 
     ok1 = case_8_1()
     ok2 = case_8_2()
+    ok3 = case_brute_force_8_2()
 
     print("\n" + "═" * 72)
     print(f"  §8.1 结论：{'通过 ✓ multi_short 优于 normal' if ok1 else '失败 ✗'}")
     print(f"  §8.2 结论：{'通过 ✓ batch_short 优于 normal' if ok2 else '失败 ✗'}")
+    print(f"  §8.2 最优性枚举：{'通过 ✓ 与暴力解相等' if ok3 else '失败 ✗'}")
     print("═" * 72 + "\n")
-    sys.exit(0 if (ok1 and ok2) else 1)
+    sys.exit(0 if (ok1 and ok2 and ok3) else 1)
