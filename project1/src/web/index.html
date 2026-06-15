@@ -1232,6 +1232,16 @@
               </span>
             </label>
           </div>
+          <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px">
+            <label class="config-radio" style="flex:1;min-width:260px">
+              <input type="checkbox" id="cfg-manual-dispatch">
+              <span class="config-radio-body">
+                <strong>手动调度测试</strong>
+                <small>开启后，新请求只进入等待区；点击"一次性调度"后统一触发当前扩展策略。</small>
+              </span>
+            </label>
+            <button class="btn btn-pri" id="btn-dispatch-once" onclick="dispatchOnce()">一次性调度</button>
+          </div>
         </div>
       </section>
 
@@ -1607,6 +1617,7 @@ async function loadConfig() {
     document.querySelector(`input[name="faultPolicy"][value="${cfg.faultDispatchPolicy}"]`).checked = true;
     // 扩展调度策略
     document.querySelector(`input[name="extPolicy"][value="${cfg.extendedSchedulePolicy}"]`).checked = true;
+    document.getElementById("cfg-manual-dispatch").checked = !!cfg.manualDispatchMode;
     // 充电桩配置
     document.getElementById("cfg-fast-count").value = cfg.fastPileCount;
     document.getElementById("cfg-slow-count").value = cfg.slowPileCount;
@@ -1669,8 +1680,9 @@ async function updateExtendedPolicy() {
   statusEl.textContent = "";
   statusEl.className = "cfg-status";
   const extPolicy = document.querySelector('input[name="extPolicy"]:checked')?.value;
+  const manualDispatchMode = document.getElementById("cfg-manual-dispatch").checked;
   try {
-    await api("/api/admin/config", {method:"PUT", body:JSON.stringify({extendedSchedulePolicy: extPolicy})});
+    await api("/api/admin/config", {method:"PUT", body:JSON.stringify({extendedSchedulePolicy: extPolicy, manualDispatchMode})});
     statusEl.textContent = "✓ 已更新";
     statusEl.className = "cfg-status ok";
     await refreshPiles();
@@ -1678,6 +1690,23 @@ async function updateExtendedPolicy() {
     statusEl.textContent = "✗ " + e.message;
     statusEl.className = "cfg-status err";
     toast("更新失败：" + e.message, false);
+  }
+}
+
+async function dispatchOnce() {
+  const statusEl = document.getElementById("cfg-ext-status");
+  statusEl.textContent = "";
+  statusEl.className = "cfg-status";
+  try {
+    const r = await api("/api/admin/dispatch-once", {method:"POST"});
+    statusEl.textContent = `✓ 已调度 ${r.dispatched} 辆`;
+    statusEl.className = "cfg-status ok";
+    toast(`一次性调度完成：${r.dispatched} 辆`);
+    await refreshPiles();
+  } catch(e) {
+    statusEl.textContent = "✗ " + e.message;
+    statusEl.className = "cfg-status err";
+    toast("调度失败：" + e.message, false);
   }
 }
 

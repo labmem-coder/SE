@@ -52,3 +52,7 @@ FAULT_DISPATCH_POLICY: str = "priority"
 #   "multi_short"  : 8.1 单次多车总充电时长最短
 #   "batch_short"  : 8.2 批量调度（充电区+等候区满时触发）
 EXTENDED_SCHEDULE_POLICY: str = "normal"
+
+# 前端扩展调度测试用：默认自动调度；开启后新请求只进入 WAITING，
+# 由管理员手动点击"一次性调度"触发 try_dispatch()。
+MANUAL_DISPATCH_MODE: bool = False

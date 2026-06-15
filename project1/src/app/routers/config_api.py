@@ -51,6 +51,7 @@ def _count_active_requests(db: Session) -> int:
 def _update_module_configs(
     fault_policy: Optional[str] = None,
     extended_policy: Optional[str] = None,
+    manual_dispatch_mode: Optional[bool] = None,
     fast_count: Optional[int] = None,
     slow_count: Optional[int] = None,
     fast_power: Optional[float] = None,
@@ -69,6 +70,8 @@ def _update_module_configs(
     if extended_policy is not None:
         cfg.EXTENDED_SCHEDULE_POLICY = extended_policy
         sched.EXTENDED_SCHEDULE_POLICY = extended_policy
+    if manual_dispatch_mode is not None:
+        cfg.MANUAL_DISPATCH_MODE = manual_dispatch_mode
     if fast_count is not None:
         cfg.FAST_PILE_COUNT = fast_count
     if slow_count is not None:
@@ -184,6 +187,7 @@ def get_config(
     return SystemConfigOut(
         faultDispatchPolicy=cfg.FAULT_DISPATCH_POLICY,
         extendedSchedulePolicy=cfg.EXTENDED_SCHEDULE_POLICY,
+        manualDispatchMode=cfg.MANUAL_DISPATCH_MODE,
         fastPileCount=cfg.FAST_PILE_COUNT,
         slowPileCount=cfg.SLOW_PILE_COUNT,
         fastPilePowerKw=cfg.FAST_PILE_POWER_KW,
@@ -209,6 +213,11 @@ def update_config(
     # 解析新值（未提供则沿用旧值）
     new_fault = payload.faultDispatchPolicy or cfg.FAULT_DISPATCH_POLICY
     new_extended = payload.extendedSchedulePolicy or cfg.EXTENDED_SCHEDULE_POLICY
+    new_manual_dispatch = (
+        payload.manualDispatchMode
+        if payload.manualDispatchMode is not None
+        else cfg.MANUAL_DISPATCH_MODE
+    )
     new_fast_count = payload.fastPileCount if payload.fastPileCount is not None else cfg.FAST_PILE_COUNT
     new_slow_count = payload.slowPileCount if payload.slowPileCount is not None else cfg.SLOW_PILE_COUNT
     new_fast_power = payload.fastPilePowerKw if payload.fastPilePowerKw is not None else cfg.FAST_PILE_POWER_KW
@@ -234,6 +243,7 @@ def update_config(
         _update_module_configs(
             fault_policy=new_fault,
             extended_policy=new_extended,
+            manual_dispatch_mode=new_manual_dispatch,
             waiting_size=new_waiting,
         )
     else:
@@ -241,6 +251,7 @@ def update_config(
         _update_module_configs(
             fault_policy=new_fault,
             extended_policy=new_extended,
+            manual_dispatch_mode=new_manual_dispatch,
             fast_power=new_fast_power,
             slow_power=new_slow_power,
             queue_cap=new_queue_cap,
@@ -258,6 +269,7 @@ def update_config(
     return SystemConfigOut(
         faultDispatchPolicy=new_fault,
         extendedSchedulePolicy=new_extended,
+        manualDispatchMode=new_manual_dispatch,
         fastPileCount=new_fast_count,
         slowPileCount=new_slow_count,
         fastPilePowerKw=new_fast_power,
@@ -266,3 +278,16 @@ def update_config(
         waitingAreaSize=new_waiting,
         hasActiveSessions=False,
     )
+
+
+@router.post("/dispatch-once")
+def dispatch_once(
+    db: Session = Depends(get_db),
+    _: User = Depends(admin_required),
+) -> dict:
+    """管理员手动触发一次调度，用于前端复现 §8.1 / §8.2 的批量候选场景。"""
+    from ..scheduler import try_dispatch
+
+    dispatched = try_dispatch(db)
+    db.commit()
+    return {"dispatched": dispatched}

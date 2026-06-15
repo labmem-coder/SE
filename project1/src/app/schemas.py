@@ -264,6 +264,7 @@ class SystemConfigOut(BaseModel):
     """当前系统配置（管理员可见）。"""
     faultDispatchPolicy: str
     extendedSchedulePolicy: str
+    manualDispatchMode: bool = False
     fastPileCount: int
     slowPileCount: int
     fastPilePowerKw: float
@@ -277,6 +278,7 @@ class SystemConfigUpdateIn(BaseModel):
     """更新系统配置。"""
     faultDispatchPolicy: Optional[str] = Field(default=None, description="priority | time_order")
     extendedSchedulePolicy: Optional[str] = Field(default=None, description="normal | multi_short | batch_short")
+    manualDispatchMode: Optional[bool] = None
     fastPileCount: Optional[int] = Field(default=None, ge=0, le=20)
     slowPileCount: Optional[int] = Field(default=None, ge=0, le=20)
     fastPilePowerKw: Optional[float] = Field(default=None, gt=0, le=500)

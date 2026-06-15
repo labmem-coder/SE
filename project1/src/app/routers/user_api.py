@@ -315,7 +315,11 @@ def submit_charge_request(
     # 前置条件 6：等候区容量 N=WAITING_AREA_SIZE 不能超。
     # spec："等候区外的请求暂时不考虑" —— 等候区满时新请求被拒收。
     # 注意：FAULT_QUEUED（损坏桩队列）按 spec 不占等候区名额，本检查只看 WAITING。
-    try_dispatch(db)
+    import app.config as cfg
+
+    auto_dispatch = not cfg.MANUAL_DISPATCH_MODE
+    if auto_dispatch:
+        try_dispatch(db)
     if _waiting_area_count(db) >= WAITING_AREA_SIZE:
         raise HTTPException(
             status_code=409,
@@ -342,7 +346,8 @@ def submit_charge_request(
     db.flush()
 
     # 立即尝试调度
-    try_dispatch(db)
+    if auto_dispatch:
+        try_dispatch(db)
     db.commit()
     db.refresh(req)
 
