@@ -1902,9 +1902,12 @@ async function refreshMyRequests() {
     tb.innerHTML = rows.map(r => {
       const acts = [];
       if (r.status==="dispatched") acts.push(`<button class="btn btn-pri btn-sm" onclick="confirmReq(${r.requestId})">确认入场</button>`);
-      if (["waiting","fault_queued","dispatched","queuing_pile"].includes(r.status)) {
+      // spec §6.1 / §6.2：仅"等候区" (waiting / fault_queued) 允许修改模式或电量；
+      // 进入充电区后（dispatched / queuing_pile / charging）请取消后重新排队。
+      if (["waiting","fault_queued"].includes(r.status)) {
         acts.push(`<button class="btn btn-ghost btn-sm" onclick="openModify(${r.requestId})">修改</button>`);
       }
+      // spec §6.3：取消在等候区、充电区均允许。
       if (["waiting","fault_queued","dispatched","queuing_pile","charging"].includes(r.status)) {
         acts.push(`<button class="btn btn-danger btn-sm" onclick="cancelReq(${r.requestId})">取消</button>`);
       }

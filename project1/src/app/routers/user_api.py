@@ -419,13 +419,22 @@ def update_charge_request(
     req = db.get(ChargingRequest, request_id)
     if req is None or req.user_id != user.id:
         raise HTTPException(status_code=404, detail="request not found")
-    # 前置条件 2：仅在"未开始充电"前可改
-    if req.status not in (
-        RequestStatus.WAITING,
-        RequestStatus.FAULT_QUEUED,
-        RequestStatus.DISPATCHED,
-        RequestStatus.QUEUING_PILE,
-    ):
+    # 前置条件 2 (spec §6.1 / §6.2)：仅在"等候区"可改。
+    # 等候区 = {WAITING, FAULT_QUEUED}；
+    # 充电区 = {DISPATCHED, QUEUING_PILE, CHARGING} 均不允许，需先取消再重新排队。
+    if req.status not in (RequestStatus.WAITING, RequestStatus.FAULT_QUEUED):
+        if req.status in (
+            RequestStatus.DISPATCHED,
+            RequestStatus.QUEUING_PILE,
+            RequestStatus.CHARGING,
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "已进入充电区，无法修改充电模式或充电量；"
+                    "如需变更请先取消，再重新进入等候区排队"
+                ),
+            )
         raise HTTPException(
             status_code=409, detail=f"cannot modify request in status {req.status.value}"
         )
