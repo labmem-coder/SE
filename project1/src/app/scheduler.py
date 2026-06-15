@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .clock import get_time
+from . import config as app_config
 from .config import (
     ENTRY_CONFIRM_TIMEOUT_SECONDS,
     EXTENDED_SCHEDULE_POLICY,
@@ -307,10 +308,13 @@ def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def try_dispatch(db: Session) -> int:
+def try_dispatch(db: Session, force: bool = False) -> int:
     """把尽可能多的等待请求派发到充电区。返回派发数量。
 
     幂等：任何时候都可调用。先推进时间与超时，再做派发。
+
+    force=True 用于管理员"一次性调度"测试按钮；手动调度测试模式下，
+    普通提交、后台 tick、查询刷新等自动触发只推进状态，不派发 WAITING 车辆。
 
     根据 config.EXTENDED_SCHEDULE_POLICY 切换调度算法：
         normal       —— 标准单车顺序贪心（默认）
@@ -320,6 +324,10 @@ def try_dispatch(db: Session) -> int:
     advance_active_sessions(db)
     handle_completed_sessions(db)
     handle_dispatch_timeouts(db)
+
+    if app_config.MANUAL_DISPATCH_MODE and not force:
+        db.flush()
+        return 0
 
     dispatched_total = 0
 

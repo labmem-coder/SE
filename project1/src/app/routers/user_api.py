@@ -209,7 +209,7 @@ def list_my_vehicles(
     """列出当前用户的所有车辆。"""
     vehicles = (
         db.query(Vehicle)
-        .filter(Vehicle.owner_id == user.id)
+        .filter(Vehicle.owner_id == user.id, Vehicle.is_deleted.is_(False))
         .order_by(Vehicle.id)
         .all()
     )
@@ -227,6 +227,11 @@ def create_vehicle(
     existing = db.query(Vehicle).filter(Vehicle.license_plate == payload.license_plate).first()
     if existing is not None:
         if existing.owner_id == user.id:
+            if existing.is_deleted:
+                existing.is_deleted = False
+                existing.battery_capacity_kwh = payload.battery_capacity_kwh
+                db.commit()
+                db.refresh(existing)
             return VehicleOut.model_validate(existing)
         raise HTTPException(status_code=409, detail="license plate already registered by another user")
 
@@ -257,7 +262,7 @@ def delete_vehicle(
             status_code=409, detail="vehicle has active charge request; cannot delete"
         )
 
-    db.delete(vehicle)
+    vehicle.is_deleted = True
     db.commit()
     return {"accepted": True, "message": "vehicle deleted"}
 
@@ -281,7 +286,7 @@ def submit_charge_request(
     vehicle: Vehicle | None = None
     if payload.vehicleId is not None:
         vehicle = db.get(Vehicle, payload.vehicleId)
-        if vehicle is None or vehicle.owner_id != user.id:
+        if vehicle is None or vehicle.owner_id != user.id or vehicle.is_deleted:
             raise HTTPException(status_code=404, detail="vehicle not found")
     elif payload.licensePlate is not None:
         plate = payload.licensePlate.strip()
@@ -299,6 +304,10 @@ def submit_charge_request(
             db.flush()
         elif vehicle.owner_id != user.id:
             raise HTTPException(status_code=409, detail="license plate already registered by another user")
+        elif vehicle.is_deleted:
+            vehicle.is_deleted = False
+            vehicle.battery_capacity_kwh = payload.batteryCapacity or vehicle.battery_capacity_kwh
+            db.flush()
     else:
         raise HTTPException(status_code=400, detail="vehicleId or licensePlate required")
 

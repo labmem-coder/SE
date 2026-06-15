@@ -113,6 +113,7 @@ def _full_reset(new_fast_count: int, new_slow_count: int, new_fast_power: float,
                 "license_plate": v.license_plate,
                 "owner_username": v.owner.username if v.owner else None,
                 "battery_capacity_kwh": v.battery_capacity_kwh,
+                "is_deleted": v.is_deleted,
             })
         old_db.close()
     except Exception:
@@ -155,6 +156,7 @@ def _full_reset(new_fast_count: int, new_slow_count: int, new_fast_power: float,
                     license_plate=vd["license_plate"],
                     owner_id=owner.id,
                     battery_capacity_kwh=vd["battery_capacity_kwh"],
+                    is_deleted=vd["is_deleted"],
                 )
                 db.add(v)
 
@@ -288,6 +290,6 @@ def dispatch_once(
     """管理员手动触发一次调度，用于前端复现 §8.1 / §8.2 的批量候选场景。"""
     from ..scheduler import try_dispatch
 
-    dispatched = try_dispatch(db)
+    dispatched = try_dispatch(db, force=True)
     db.commit()
     return {"dispatched": dispatched}

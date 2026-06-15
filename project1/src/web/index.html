@@ -1902,8 +1902,10 @@ async function refreshMyRequests() {
     tb.innerHTML = rows.map(r => {
       const acts = [];
       if (r.status==="dispatched") acts.push(`<button class="btn btn-pri btn-sm" onclick="confirmReq(${r.requestId})">确认入场</button>`);
-      if (["waiting","dispatched","queuing_pile"].includes(r.status)) {
+      if (["waiting","fault_queued","dispatched","queuing_pile"].includes(r.status)) {
         acts.push(`<button class="btn btn-ghost btn-sm" onclick="openModify(${r.requestId})">修改</button>`);
+      }
+      if (["waiting","fault_queued","dispatched","queuing_pile","charging"].includes(r.status)) {
         acts.push(`<button class="btn btn-danger btn-sm" onclick="cancelReq(${r.requestId})">取消</button>`);
       }
       if (r.status==="completed"||r.status==="fault_interrupted") acts.push(`<button class="btn btn-ghost btn-sm" onclick="viewBill(${r.requestId})">查账单</button>`);

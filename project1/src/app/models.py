@@ -100,6 +100,8 @@ class Vehicle(Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     # 车辆电池总容量（度）—— 管理员"查看等候服务车辆信息" spec 字段
     battery_capacity_kwh: Mapped[float] = mapped_column(Float, default=60.0, nullable=False)
+    # 车辆删除保留历史充电请求/账单引用，用户侧列表中隐藏。
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     owner: Mapped[User] = relationship(back_populates="vehicles")
     requests: Mapped[list["ChargingRequest"]] = relationship(back_populates="vehicle")
