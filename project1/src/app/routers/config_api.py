@@ -58,6 +58,7 @@ def _update_module_configs(
     slow_power: Optional[float] = None,
     queue_cap: Optional[int] = None,
     waiting_size: Optional[int] = None,
+    entry_confirm_timeout: Optional[int] = None,
 ) -> None:
     """更新所有模块中 import 的配置变量（Python 模块级变量需跨模块同步）。"""
     import app.config as cfg
@@ -86,6 +87,8 @@ def _update_module_configs(
     if waiting_size is not None:
         cfg.WAITING_AREA_SIZE = waiting_size
         sched.WAITING_AREA_SIZE = waiting_size
+    if entry_confirm_timeout is not None:
+        cfg.ENTRY_CONFIRM_TIMEOUT_SECONDS = entry_confirm_timeout
 
 
 def _full_reset(new_fast_count: int, new_slow_count: int, new_fast_power: float, new_slow_power: float, new_queue_cap: int) -> None:
@@ -196,6 +199,7 @@ def get_config(
         slowPilePowerKw=cfg.SLOW_PILE_POWER_KW,
         pileQueueCapacity=cfg.PILE_QUEUE_CAPACITY,
         waitingAreaSize=cfg.WAITING_AREA_SIZE,
+        entryConfirmTimeoutSeconds=cfg.ENTRY_CONFIRM_TIMEOUT_SECONDS,
         hasActiveSessions=has_active,
     )
 
@@ -226,6 +230,11 @@ def update_config(
     new_slow_power = payload.slowPilePowerKw if payload.slowPilePowerKw is not None else cfg.SLOW_PILE_POWER_KW
     new_queue_cap = payload.pileQueueCapacity if payload.pileQueueCapacity is not None else cfg.PILE_QUEUE_CAPACITY
     new_waiting = payload.waitingAreaSize if payload.waitingAreaSize is not None else cfg.WAITING_AREA_SIZE
+    new_entry_timeout = (
+        payload.entryConfirmTimeoutSeconds
+        if payload.entryConfirmTimeoutSeconds is not None
+        else cfg.ENTRY_CONFIRM_TIMEOUT_SECONDS
+    )
 
     # 验证策略值
     if new_fault not in ("priority", "time_order"):
@@ -247,6 +256,7 @@ def update_config(
             extended_policy=new_extended,
             manual_dispatch_mode=new_manual_dispatch,
             waiting_size=new_waiting,
+            entry_confirm_timeout=new_entry_timeout,
         )
     else:
         # 数量未变 → 仅更新模块变量 + 更新现有桩的属性
@@ -258,6 +268,7 @@ def update_config(
             slow_power=new_slow_power,
             queue_cap=new_queue_cap,
             waiting_size=new_waiting,
+            entry_confirm_timeout=new_entry_timeout,
         )
         # 更新已有桩的功率与队列容量
         for pile in db.query(ChargingPile).all():
@@ -278,6 +289,7 @@ def update_config(
         slowPilePowerKw=new_slow_power,
         pileQueueCapacity=new_queue_cap,
         waitingAreaSize=new_waiting,
+        entryConfirmTimeoutSeconds=new_entry_timeout,
         hasActiveSessions=False,
     )
 

@@ -324,16 +324,32 @@ def submit_charge_request(
     # 前置条件 6：等候区容量 N=WAITING_AREA_SIZE 不能超。
     # spec："等候区外的请求暂时不考虑" —— 等候区满时新请求被拒收。
     # 注意：FAULT_QUEUED（损坏桩队列）按 spec 不占等候区名额，本检查只看 WAITING。
+    #
+    # MANUAL_DISPATCH 演示模式下，调度被管理员手动控制，等候区无法自动清空；
+    # 为了能攒一批车再触发，等候区上限放宽到"系统总容量"（充电区+等候区），
+    # 即允许把整个系统的车位都先用 WAITING 占着，等 dispatch-once 一次性派出。
     import app.config as cfg
 
     auto_dispatch = not cfg.MANUAL_DISPATCH_MODE
     if auto_dispatch:
         try_dispatch(db)
-    if _waiting_area_count(db) >= WAITING_AREA_SIZE:
+
+    if cfg.MANUAL_DISPATCH_MODE:
+        pile_total = sum(
+            p.queue_capacity
+            for p in db.query(ChargingPile)
+            .filter(ChargingPile.status != PileStatus.FAULT)
+            .all()
+        )
+        waiting_cap = WAITING_AREA_SIZE + pile_total
+    else:
+        waiting_cap = WAITING_AREA_SIZE
+
+    if _waiting_area_count(db) >= waiting_cap:
         raise HTTPException(
             status_code=409,
             detail=(
-                f"waiting area is full (capacity={WAITING_AREA_SIZE}); "
+                f"waiting area is full (capacity={waiting_cap}); "
                 "request rejected as it would be outside the waiting area"
             ),
         )

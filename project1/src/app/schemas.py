@@ -271,6 +271,7 @@ class SystemConfigOut(BaseModel):
     slowPilePowerKw: float
     pileQueueCapacity: int
     waitingAreaSize: int
+    entryConfirmTimeoutSeconds: int = 1800
     hasActiveSessions: bool = False
 
 
@@ -285,3 +286,7 @@ class SystemConfigUpdateIn(BaseModel):
     slowPilePowerKw: Optional[float] = Field(default=None, gt=0, le=500)
     pileQueueCapacity: Optional[int] = Field(default=None, ge=1, le=20)
     waitingAreaSize: Optional[int] = Field(default=None, ge=1, le=200)
+    entryConfirmTimeoutSeconds: Optional[int] = Field(
+        default=None, ge=10, le=86400,
+        description="叫号后用户响应超时（秒），10s ~ 1d。演示时可调长避免自动取消。",
+    )

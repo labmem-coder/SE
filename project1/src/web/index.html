@@ -1280,6 +1280,10 @@
               <label for="cfg-queue-cap">充电桩队列长度 <span class="cfg-hint">(含正在充电的 1 个)</span></label>
               <input type="number" id="cfg-queue-cap" min="1" max="20" value="3">
             </div>
+            <div class="config-field">
+              <label for="cfg-entry-timeout">叫号确认超时 <span class="cfg-hint">(秒，演示可调长，默认 1800=30 分钟)</span></label>
+              <input type="number" id="cfg-entry-timeout" min="10" max="86400" value="1800">
+            </div>
           </div>
           <div id="cfg-active-warning" class="config-warning hidden">
             ⚠️ 有充电桩正在工作中，无法修改配置。请等待所有充电完成后重试。
@@ -1625,6 +1629,7 @@ async function loadConfig() {
     document.getElementById("cfg-slow-power").value = cfg.slowPilePowerKw;
     document.getElementById("cfg-waiting-size").value = cfg.waitingAreaSize;
     document.getElementById("cfg-queue-cap").value = cfg.pileQueueCapacity;
+    document.getElementById("cfg-entry-timeout").value = cfg.entryConfirmTimeoutSeconds ?? 1800;
     // 工作中状态
     setConfigButtonsDisabled(cfg.hasActiveSessions);
     // 清除各卡片状态
@@ -1721,6 +1726,7 @@ async function updatePileConfig() {
   const slowPower = parseFloat(document.getElementById("cfg-slow-power").value);
   const waitingSize = parseInt(document.getElementById("cfg-waiting-size").value);
   const queueCap = parseInt(document.getElementById("cfg-queue-cap").value);
+  const entryTimeout = parseInt(document.getElementById("cfg-entry-timeout").value);
 
   if (!fastCount && !slowCount) {
     toast("至少需要 1 个充电桩", false);
@@ -1728,6 +1734,10 @@ async function updatePileConfig() {
   }
   if (fastCount < 0 || slowCount < 0 || fastCount > 20 || slowCount > 20) {
     toast("充电桩数量需在 0~20 之间", false);
+    return;
+  }
+  if (!entryTimeout || entryTimeout < 10 || entryTimeout > 86400) {
+    toast("叫号确认超时需在 10~86400 秒之间", false);
     return;
   }
 
@@ -1738,6 +1748,7 @@ async function updatePileConfig() {
     slowPilePowerKw: slowPower,
     pileQueueCapacity: queueCap,
     waitingAreaSize: waitingSize,
+    entryConfirmTimeoutSeconds: entryTimeout,
   };
 
   try {

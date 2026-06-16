@@ -11,7 +11,7 @@ FAST_PILE_POWER_KW = 30.0        # 快充：30 度/小时
 SLOW_PILE_POWER_KW = 10.0        # 慢充：10 度/小时
 
 # 业务规则
-ENTRY_CONFIRM_TIMEOUT_SECONDS = 300   # 叫号后用户响应超时：5 分钟
+ENTRY_CONFIRM_TIMEOUT_SECONDS = 1800  # 叫号后用户响应超时：默认 30 分钟（演示时可在 admin 配置中调整）
 BILL_OVERDUE_HOURS = 24               # 账单生成多久未付即视为"超期"
 
 # 分时电价（峰/平/谷），yuan/kWh

@@ -22,7 +22,6 @@ from sqlalchemy.orm import Session
 from .clock import get_time
 from . import config as app_config
 from .config import (
-    ENTRY_CONFIRM_TIMEOUT_SECONDS,
     EXTENDED_SCHEDULE_POLICY,
     PILE_QUEUE_CAPACITY,
     TIME_ACCELERATION,
@@ -269,12 +268,15 @@ def _refresh_pile_status(db: Session, pile: ChargingPile) -> None:
 
 
 def handle_dispatch_timeouts(db: Session, now: Optional[datetime] = None) -> int:
-    """5 分钟未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。
+    """长时间未 ConfirmEntry 的 DISPATCHED 请求 → 自动取消。
+
+    超时阈值 ENTRY_CONFIRM_TIMEOUT_SECONDS 在 app.config 里，默认 30 分钟；
+    每次都从 module 动态读，admin 在 /api/admin/config 改完即时生效。
 
     业务时间统一使用虚拟时钟；否则调度时间与 UI 展示时间混用会导致负等待时长。
     """
     now = now or get_time()
-    cutoff = now - timedelta(seconds=ENTRY_CONFIRM_TIMEOUT_SECONDS)
+    cutoff = now - timedelta(seconds=app_config.ENTRY_CONFIRM_TIMEOUT_SECONDS)
     timed_out = (
         db.query(ChargingRequest)
         .filter(
@@ -322,7 +324,9 @@ def try_dispatch(db: Session, force: bool = False) -> int:
     根据 config.EXTENDED_SCHEDULE_POLICY 切换调度算法：
         normal       —— 标准单车顺序贪心（默认）
         multi_short  —— spec §8.1 单次多车总充电时长最短
-        batch_short  —— spec §8.2 批量调度（充电区+等候区满时触发，混合快慢）
+        batch_short  —— spec §8.2 批量调度（混合快慢）；不走 normal 兜底，
+                        车辆攒在等候区，直到 _batch_full（自然触发）或
+                        force=True（管理员"一次性调度"按钮）才一次性规划
     """
     advance_active_sessions(db)
     handle_completed_sessions(db)
@@ -335,17 +339,23 @@ def try_dispatch(db: Session, force: bool = False) -> int:
     dispatched_total = 0
 
     if EXTENDED_SCHEDULE_POLICY == "batch_short":
-        # 8.2 批量：先把已被纳入"当前批"的计划车按计划顺序滴灌入桩。
+        # spec §8.2 批量：本模式下绝不走 normal 兜底，让等候区车辆攒齐再统一规划，
+        # 否则先到的车会被按 mode 提前派进桩，导致后到的车无法被 ∑Cj 重排。
         dispatched_total += _drain_planned_batch(db)
-        # 触发条件：到站车辆 ≥ 充电区 + 等候区全部车位 → 把尚未规划的等候车
-        # 一次性最优规划到全部桩上（无 per-pile 上限），让 ∑Cj 真正含全部 K 辆。
-        if _batch_full(db) and _has_unplanned_waiting(db):
+        # 触发条件 (任一)：
+        #   1) 等候区已满 (WAITING ≥ WAITING_AREA_SIZE) —— spec §8.2 "等候区为满"
+        #   2) force=True —— 管理员"一次性调度"按钮（演示触发，无需攒满）
+        # 每次触发都对全部 WAITING 重新规划（含此前已规划但还堵在等候区的），
+        # 这样新到的车也能参与重排，得到当前批的真正 ∑Cj 最优。
+        waiting_count = (
+            db.query(ChargingRequest)
+            .filter(ChargingRequest.status == RequestStatus.WAITING)
+            .count()
+        )
+        if waiting_count > 0 and (force or waiting_count >= app_config.WAITING_AREA_SIZE):
             _plan_batch(db)
             dispatched_total += _drain_planned_batch(db)
-        # 未达批量触发时维持 normal 兜底，避免空场空桩造成系统空转
-        if dispatched_total == 0:
-            for mode in (ChargeMode.FAST, ChargeMode.SLOW):
-                dispatched_total += _dispatch_mode(db, mode)
+        # 不再有 normal 兜底；未触发批量时 WAITING 车原地排队，不会被零散派出
     elif EXTENDED_SCHEDULE_POLICY == "multi_short":
         for mode in (ChargeMode.FAST, ChargeMode.SLOW):
             dispatched_total += _dispatch_mode_multi_short(db, mode)
@@ -771,22 +781,28 @@ def _eligible_piles_unbounded(db: Session, K: int):
 
 
 def _plan_batch(db: Session) -> int:
-    """§8.2：把当前所有未规划的 WAITING 车一次性最优地分配到全部桩，
+    """§8.2：对当前【全部 WAITING 车】一次性最优地重新分配到全部桩，
        写入 (assigned_pile_id, batch_plan_order)。本身不改变 status。
 
        规划目标：全部 K 辆车的 ∑Cj 最小（含尚未进入 pile FIFO 的"队尾"）。
-       桩内 SPT、桩间重排不等式、partition 暴搜 → P/Q‖∑Cj 精确最优。"""
+       桩内 SPT、桩间重排不等式、partition 暴搜 → P/Q‖∑Cj 精确最优。
+
+       注：每次触发都重置原有 plan，让新到的 WAITING 车也参与重排，
+       否则旧 plan 会"卡住"原本可换桩的车。L_i 取当前已 DISPATCHED/
+       CHARGING 车的剩余忙碌时长，所以正在充电的车不会被打扰。"""
     waiting = (
         db.query(ChargingRequest)
-        .filter(
-            ChargingRequest.status == RequestStatus.WAITING,
-            ChargingRequest.batch_plan_order.is_(None),
-        )
+        .filter(ChargingRequest.status == RequestStatus.WAITING)
         .order_by(ChargingRequest.priority_time.asc())
         .all()
     )
     if not waiting:
         return 0
+    # 清掉旧 plan，全部 WAITING 都参与本轮重排
+    for r in waiting:
+        r.assigned_pile_id = None
+        r.batch_plan_order = None
+    db.flush()
     pile_info = _eligible_piles_unbounded(db, K=len(waiting))
     if not pile_info:
         return 0
